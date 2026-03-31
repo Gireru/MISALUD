@@ -1,0 +1,66 @@
+{
+  "name": "ClinicalJourney",
+  "type": "object",
+  "properties": {
+    "patient_id": {
+      "type": "string",
+      "description": "Reference to Patient ID"
+    },
+    "patient_name": {
+      "type": "string",
+      "description": "Patient name for display"
+    },
+    "studies": {
+      "type": "array",
+      "description": "Ordered list of clinical studies",
+      "items": {
+        "type": "object",
+        "properties": {
+          "study_name": {
+            "type": "string"
+          },
+          "area": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "in_progress",
+              "completed"
+            ]
+          },
+          "estimated_minutes": {
+            "type": "number"
+          },
+          "cubicle": {
+            "type": "string"
+          },
+          "preparation_note": {
+            "type": "string"
+          },
+          "completed_at": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "total_eta_minutes": {
+      "type": "number",
+      "description": "Total estimated time in minutes"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "completed",
+        "cancelled"
+      ],
+      "default": "active"
+    }
+  },
+  "required": [
+    "patient_id",
+    "patient_name"
+  ]
+}

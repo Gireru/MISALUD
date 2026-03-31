@@ -5,7 +5,11 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
-// Add page imports here
+import AppLayout from './components/layout/AppLayout';
+import StaffDashboard from './pages/StaffDashboard';
+import PatientList from './pages/PatientList';
+import RegisterPatient from './pages/RegisterPatient';
+import PatientView from './pages/PatientView';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -33,7 +37,13 @@ const AuthenticatedApp = () => {
   // Render the main app
   return (
     <Routes>
-      {/* Add your page Route elements here */}
+      <Route element={<AppLayout />}>
+        <Route path="/" element={<StaffDashboard />} />
+        <Route path="/staff" element={<StaffDashboard />} />
+        <Route path="/patients" element={<PatientList />} />
+        <Route path="/register" element={<RegisterPatient />} />
+        <Route path="/patient/view" element={<PatientView />} />
+      </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );
