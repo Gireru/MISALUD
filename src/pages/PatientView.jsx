@@ -60,10 +60,15 @@ export default function PatientView() {
     setInputMsg('');
     setMessages(prev => [...prev, { role: 'user', content: text }]);
     setAiLoading(true);
-    const res = await base44.integrations.Core.InvokeLLM({
-      prompt: `Eres un asistente clínico amigable de SD-NEXUS. Responde en español, brevemente. Pregunta: "${text}"`,
-    });
-    setMessages(prev => [...prev, { role: 'assistant', content: res }]);
+    try {
+      const res = await base44.functions.invoke('chatAssistant', {
+        message: text,
+        patientName: patient?.name || '',
+      });
+      setMessages(prev => [...prev, { role: 'assistant', content: res.data?.reply || 'Lo siento, no pude responder.' }]);
+    } catch {
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Hubo un error al conectar con el asistente.' }]);
+    }
     setAiLoading(false);
   };
 
