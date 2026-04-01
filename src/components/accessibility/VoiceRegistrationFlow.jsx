@@ -29,6 +29,7 @@ export default function VoiceRegistrationFlow() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [message, setMessage] = useState('');
+  const [nextAction, setNextAction] = useState('');
   const transcriptRef = useRef('');
 
   // Start registration flow
@@ -51,9 +52,11 @@ export default function VoiceRegistrationFlow() {
       const res = await base44.functions.invoke('voiceRegistrationFlow', {
         action: 'start'
       });
-      setMessage(res.data.message);
-      speak(res.data.message);
+      const fullMessage = `${res.data.message}. Cuando termines de hablar, haz clic en cualquier parte de la pantalla para continuar.`;
+      setMessage(fullMessage);
+      speak(fullMessage);
       setStep('ask_name');
+      setNextAction('process_name');
       setLoading(false);
       setTimeout(() => {
         clearTranscript();
@@ -65,11 +68,12 @@ export default function VoiceRegistrationFlow() {
     }
   };
 
-  const processStep = async (nextAction) => {
+  const processStep = async (action) => {
     stopListening();
     const input = transcriptRef.current.trim();
     if (!input) {
-      speak('No escuché tu respuesta. Intenta de nuevo.');
+      const retryMsg = 'No escuché tu respuesta. Haz clic en la pantalla e intenta de nuevo.';
+      speak(retryMsg);
       setTimeout(() => {
         clearTranscript();
         startListening();
@@ -80,14 +84,14 @@ export default function VoiceRegistrationFlow() {
     setLoading(true);
     try {
       const res = await base44.functions.invoke('voiceRegistrationFlow', {
-        action: nextAction,
+        action: action,
         currentData: registrationData,
         transcript: input
       });
 
       if (res.data.error) {
         // Confirmación de error con repetición
-        const confirmMessage = `Escuché: ${input}. ${res.data.error}. ¿Deseas intentar de nuevo?`;
+        const confirmMessage = `Escuché: ${input}. ${res.data.error}. Cuando estés listo, haz clic en la pantalla para intentar de nuevo.`;
         setMessage(confirmMessage);
         speak(confirmMessage);
         setLoading(false);
@@ -100,21 +104,32 @@ export default function VoiceRegistrationFlow() {
       }
 
       // Confirmación de respuesta correcta
-      const confirmMessage = `Escuché: ${input}. ${res.data.message}`;
-      setMessage(confirmMessage);
-      speak(confirmMessage);
+      const nextMsg = res.data.nextStep === 'complete' 
+        ? res.data.message 
+        : `Escuché: ${input}. ${res.data.message}. Cuando estés listo, haz clic en la pantalla para continuar.`;
+      
+      setMessage(nextMsg);
+      speak(nextMsg);
       setRegistrationData(res.data.data || registrationData);
 
       setLoading(false);
 
       if (res.data.nextStep === 'confirm') {
         setStep('confirm');
+        setNextAction('complete_registration');
       } else if (res.data.nextStep === 'ask_studies_more') {
         setStep('ask_studies');
+        setNextAction('process_studies');
       } else if (res.data.nextStep === 'complete') {
         setResult(res.data.registrationData);
         setStep('complete');
         return;
+      } else if (res.data.nextStep === 'ask_phone') {
+        setStep('ask_phone');
+        setNextAction('process_phone');
+      } else if (res.data.nextStep === 'ask_studies') {
+        setStep('ask_studies');
+        setNextAction('process_studies');
       } else {
         setStep(res.data.nextStep);
       }
@@ -124,8 +139,9 @@ export default function VoiceRegistrationFlow() {
         startListening();
       }, 2500);
     } catch (err) {
-      setMessage('Error: ' + err.message);
-      speak('Hubo un error, intenta de nuevo');
+      const errorMsg = 'Hubo un error. Haz clic en la pantalla para intentar de nuevo.';
+      setMessage(errorMsg);
+      speak(errorMsg);
       setLoading(false);
       
       setTimeout(() => {
@@ -187,8 +203,17 @@ export default function VoiceRegistrationFlow() {
     );
   }
 
+  const handleScreenClick = () => {
+    if (!loading && transcript) {
+      processStep(nextAction);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#4B0082]/5 to-[#008F4C]/5 flex items-center justify-center p-6">
+    <div 
+      className="min-h-screen bg-gradient-to-br from-[#4B0082]/5 to-[#008F4C]/5 flex items-center justify-center p-6 cursor-pointer"
+      onClick={handleScreenClick}
+    >
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -261,54 +286,16 @@ export default function VoiceRegistrationFlow() {
           </div>
         )}
 
-        {/* Action buttons */}
-        <div className="space-y-3">
-          {step === 'ask_name' && (
-            <button
-              onClick={() => processStep('process_name')}
-              disabled={loading || !transcript}
-              className="w-full h-12 rounded-xl font-semibold text-white flex items-center justify-center gap-2 disabled:opacity-50"
-              style={{ background: '#4B0082' }}
-            >
-              <Mic className="w-4 h-4" /> Confirmar nombre
-            </button>
-          )}
-
-          {step === 'ask_phone' && (
-            <button
-              onClick={() => processStep('process_phone')}
-              disabled={loading || !transcript}
-              className="w-full h-12 rounded-xl font-semibold text-white flex items-center justify-center gap-2 disabled:opacity-50"
-              style={{ background: '#4B0082' }}
-            >
-              <Mic className="w-4 h-4" /> Confirmar teléfono
-            </button>
-          )}
-
-          {(step === 'ask_studies' || step === 'confirm') && (
-            <>
-              <button
-                onClick={() => processStep('process_studies')}
-                disabled={loading || !transcript}
-                className="w-full h-12 rounded-xl font-semibold text-white flex items-center justify-center gap-2 disabled:opacity-50"
-                style={{ background: '#4B0082' }}
-              >
-                <Mic className="w-4 h-4" /> Agregar estudio
-              </button>
-
-              {step === 'confirm' && (
-                <button
-                  onClick={() => processStep('complete_registration')}
-                  disabled={loading}
-                  className="w-full h-12 rounded-xl font-semibold text-white flex items-center justify-center gap-2"
-                  style={{ background: '#008F4C' }}
-                >
-                  <CheckCircle2 className="w-4 h-4" /> Completar registro
-                </button>
-              )}
-            </>
-          )}
-        </div>
+        {/* Visual feedback for clickable area */}
+        {transcript && !loading && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-center mt-6 px-4 py-3 rounded-xl bg-[#4B0082]/10 border border-[#4B0082]/20"
+          >
+            <p className="text-xs font-medium text-[#4B0082]">👆 Haz clic en cualquier parte de la pantalla para continuar</p>
+          </motion.div>
+        )}
 
         {/* Listening indicator */}
         {isListening && !loading && (
