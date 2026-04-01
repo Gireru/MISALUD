@@ -117,38 +117,38 @@ export default function RegisterPatient() {
 
     setStep('loading');
 
-    let existingPatients = [];
     try {
-      existingPatients = await base44.entities.Patient.filter({ name: name.trim(), phone: phone.trim() });
-    } catch (e) {
-      existingPatients = [];
-    }
-
-    if (existingPatients.length > 0) {
-      const existing = existingPatients[0];
-      let journeys = [];
+      let existingPatients = [];
       try {
-        journeys = await base44.entities.ClinicalJourney.filter({ patient_id: existing.id });
+        existingPatients = await base44.entities.Patient.filter({ name: name.trim(), phone: phone.trim() });
       } catch (e) {
-        journeys = [];
+        existingPatients = [];
       }
-      const activeJourney = journeys.find(j => j.status === 'active') || journeys[0];
 
-      if (activeJourney) {
-        if (isSameDay(activeJourney.created_date)) {
-          setResult({ qrToken: existing.qr_token, patientName: existing.name, totalEta: activeJourney.total_eta_minutes, existing: true });
-          setStep('success');
-          return;
-        } else {
-          setDupData({ patient: existing, journey: activeJourney, dateStr: formatDate(activeJourney.created_date) });
-          setStep('duplicate');
-          return;
+      if (existingPatients.length > 0) {
+        const existing = existingPatients[0];
+        let journeys = [];
+        try {
+          journeys = await base44.entities.ClinicalJourney.filter({ patient_id: existing.id });
+        } catch (e) {
+          journeys = [];
+        }
+        const activeJourney = journeys.find(j => j.status === 'active') || journeys[0];
+
+        if (activeJourney) {
+          if (isSameDay(activeJourney.created_date)) {
+            setResult({ qrToken: existing.qr_token, patientName: existing.name, totalEta: activeJourney.total_eta_minutes, existing: true });
+            setStep('success');
+            return;
+          } else {
+            setDupData({ patient: existing, journey: activeJourney, dateStr: formatDate(activeJourney.created_date) });
+            setStep('duplicate');
+            return;
+          }
         }
       }
-    }
 
-    // New patient
-    try {
+      // New patient
       const qrToken = makeToken();
       const patient = await base44.entities.Patient.create({
         name: name.trim(),
@@ -165,7 +165,7 @@ export default function RegisterPatient() {
     } catch (err) {
       const msg = err?.response?.data?.message || err?.message || 'Error desconocido';
       console.error('Register error:', msg, err);
-      toast.error(`Error: ${msg}`);
+      toast.error(`Error al registrar: ${msg}`);
       setStep('form');
     }
   };
