@@ -1,8 +1,10 @@
 import React from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
-import { Activity, LayoutDashboard, Users, QrCode } from 'lucide-react';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { Activity, LayoutDashboard, Users, QrCode, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
+import { useAuth } from '@/lib/AuthContext';
+import { clearAdminSession, getAdminSession } from '@/lib/adminSession';
 
 const navItems = [
   { path: '/staff', label: 'Mission Control', icon: LayoutDashboard },
@@ -12,11 +14,16 @@ const navItems = [
 
 export default function AppLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { logout, isAuthenticated } = useAuth();
 
-  // Patient-facing views have no sidebar
-  if (location.pathname.startsWith('/patient/') || location.pathname === '/mis-trayectos') {
-    return <Outlet />;
-  }
+  const handleLogout = () => {
+    clearAdminSession();
+    if (isAuthenticated) {
+      logout(false);
+    }
+    navigate('/admin-login');
+  };
 
   return (
     <div className="min-h-screen flex bg-background font-body">
@@ -60,9 +67,15 @@ export default function AppLayout() {
           })}
         </nav>
 
-        <div className="pt-4 border-t text-xs text-muted-foreground">
-          <p>SD-NEXUS v1.0</p>
-          <p className="mt-0.5">Salud Digna · 2026</p>
+        <div className="pt-4 border-t space-y-2">
+          <p className="text-xs text-muted-foreground">SD-NEXUS v1.0</p>
+          <p className="text-xs text-muted-foreground">Salud Digna · 2026</p>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-destructive transition-colors mt-2"
+          >
+            <LogOut className="w-3.5 h-3.5" /> Cerrar sesión
+          </button>
         </div>
       </aside>
 
