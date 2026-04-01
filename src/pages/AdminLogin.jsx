@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const SF = '-apple-system, SF Pro Display, BlinkMacSystemFont, Segoe UI, sans-serif';
 const SECRET_KEY = 'sdnexus2026';
@@ -18,10 +18,12 @@ export default function AdminLogin() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Guard: only show if ?key=sdnexus2026 is present in the URL
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get('key') !== SECRET_KEY) {
+  const urlParams = new URLSearchParams(location.search);
+  const keyParam = urlParams.get('key');
+  if (keyParam !== SECRET_KEY) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
         <p className="text-gray-300 text-sm">404 — Página no encontrada</p>
