@@ -103,7 +103,7 @@ export default function PatientView() {
         <div className="w-14 h-14 rounded-2xl bg-[#4B0082]/10 flex items-center justify-center mx-auto mb-5">
           <Activity className="w-7 h-7 text-[#4B0082]" />
         </div>
-        <h1 style={{ fontFamily: '-apple-system, SF Pro Display, BlinkMacSystemFont, Segoe UI, sans-serif' }} className="text-2xl font-semibold mb-2 text-gray-900">SD-NEXUS</h1>
+        <h1 style={{ fontFamily: '-apple-system, SF Pro Display, BlinkMacSystemFont, Segoe UI, sans-serif' }} className="text-2xl font-semibold mb-2 text-gray-900">Salud Digna NX</h1>
         <p className="text-gray-400 text-sm">Escanea tu código QR para ver tu trayecto</p>
       </div>
     </div>
@@ -146,7 +146,7 @@ export default function PatientView() {
             <div className="w-7 h-7 rounded-xl bg-[#4B0082] flex items-center justify-center">
               <Activity className="w-3.5 h-3.5 text-white" />
             </div>
-            <span className="text-[11px] font-semibold tracking-widest text-[#4B0082] uppercase">SD-NEXUS</span>
+            <span className="text-[11px] font-semibold tracking-widest text-[#4B0082] uppercase">Salud Digna NX</span>
           </div>
 
           <h1 className="text-3xl font-light text-gray-900 leading-tight">

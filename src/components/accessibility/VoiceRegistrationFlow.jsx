@@ -225,7 +225,7 @@ export default function VoiceRegistrationFlow() {
             <Mic className="w-7 h-7 text-[#4B0082]" />
           </div>
           <h1 className="font-heading text-2xl font-bold mb-1">Registro por Voz</h1>
-          <p className="text-sm text-gray-500">SD-NEXUS Accesible</p>
+          <p className="text-sm text-gray-500">Salud Digna NX Accesible</p>
         </div>
 
         {/* Message bubble */}
