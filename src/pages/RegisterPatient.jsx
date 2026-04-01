@@ -163,8 +163,9 @@ export default function RegisterPatient() {
       setSelectedStudies([]);
       setStep('success');
     } catch (err) {
-      console.error(err);
-      toast.error('Error al registrar. Intenta de nuevo.');
+      const msg = err?.response?.data?.message || err?.message || 'Error desconocido';
+      console.error('Register error:', msg, err);
+      toast.error(`Error: ${msg}`);
       setStep('form');
     }
   };
