@@ -86,15 +86,24 @@ export default function VoiceRegistrationFlow() {
       });
 
       if (res.data.error) {
-        setMessage(res.data.error);
-        speak(res.data.error);
+        // Confirmación de error con repetición
+        const confirmMessage = `Escuché: ${input}. ${res.data.error}. ¿Deseas intentar de nuevo?`;
+        setMessage(confirmMessage);
+        speak(confirmMessage);
         setLoading(false);
+        
+        setTimeout(() => {
+          clearTranscript();
+          startListening();
+        }, 2000);
         return;
       }
 
-      setMessage(res.data.message);
+      // Confirmación de respuesta correcta
+      const confirmMessage = `Escuché: ${input}. ${res.data.message}`;
+      setMessage(confirmMessage);
+      speak(confirmMessage);
       setRegistrationData(res.data.data || registrationData);
-      speak(res.data.message);
 
       setLoading(false);
 
@@ -113,11 +122,16 @@ export default function VoiceRegistrationFlow() {
       setTimeout(() => {
         clearTranscript();
         startListening();
-      }, 500);
+      }, 2500);
     } catch (err) {
       setMessage('Error: ' + err.message);
-      speak('Hubo un error');
+      speak('Hubo un error, intenta de nuevo');
       setLoading(false);
+      
+      setTimeout(() => {
+        clearTranscript();
+        startListening();
+      }, 2000);
     }
   };
 
