@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { QrCode, UserPlus, CheckCircle2, Copy, Phone } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 
 const AVAILABLE_STUDIES = [
   { name: 'Análisis de Sangre', area: 'Laboratorio', minutes: 15, prep: 'Requiere ayuno de 8 horas' },
@@ -108,7 +109,8 @@ export default function RegisterPatient() {
           animate={{ opacity: 1, scale: 1 }}
           className="bg-card border rounded-2xl p-8 text-center"
         >
-          <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-4">
+          {/* Header */}
+          <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-3">
             <CheckCircle2 className="w-8 h-8 text-accent" />
           </div>
           <h2 className="font-heading text-xl font-bold mb-1">¡Registro exitoso!</h2>
@@ -116,36 +118,47 @@ export default function RegisterPatient() {
             {result.patientName} · ETA: {result.totalEta} min
           </p>
 
-          <div className="bg-muted rounded-xl p-4 mb-4">
-            <p className="text-xs text-muted-foreground mb-2">Enlace del paciente (simula QR)</p>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 text-xs bg-background rounded-lg px-3 py-2 text-left truncate">
-                {patientUrl}
-              </code>
-              <Button
-                size="icon"
-                variant="outline"
-                onClick={() => { navigator.clipboard.writeText(patientUrl); toast.success('Enlace copiado'); }}
-              >
-                <Copy className="w-4 h-4" />
-              </Button>
+          {/* QR Code */}
+          <div className="flex flex-col items-center mb-4">
+            <div className="p-4 bg-white rounded-2xl border shadow-sm inline-block mb-3">
+              <QRCodeSVG value={patientUrl} size={180} level="H" />
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs rounded-xl"
+              onClick={() => { navigator.clipboard.writeText(patientUrl); toast.success('Enlace copiado'); }}
+            >
+              <Copy className="w-3.5 h-3.5 mr-1.5" /> Copiar enlace del QR
+            </Button>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <div className="flex gap-2">
-              <Button className="flex-1" onClick={() => setResult(null)}>
-                <UserPlus className="w-4 h-4 mr-2" /> Nuevo registro
-              </Button>
-              <Button variant="outline" className="flex-1" asChild>
-                <a href={patientUrl} target="_blank" rel="noopener noreferrer">
-                  <QrCode className="w-4 h-4 mr-2" /> Ver trayecto
-                </a>
-              </Button>
-            </div>
-            <Button variant="ghost" className="w-full text-xs text-muted-foreground" asChild>
+          {/* Primary CTA - Ver trayecto */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="mb-3"
+          >
+            <Button
+              className="w-full h-14 rounded-2xl text-base font-semibold"
+              style={{ background: 'linear-gradient(135deg, #4B0082, #7B00CC)', boxShadow: '0 8px 24px rgba(75,0,130,0.3)' }}
+              asChild
+            >
+              <a href={patientUrl} target="_blank" rel="noopener noreferrer">
+                <QrCode className="w-5 h-5 mr-2" /> Ver mi trayecto
+              </a>
+            </Button>
+          </motion.div>
+
+          {/* Secondary buttons */}
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1 rounded-xl text-sm" onClick={() => setResult(null)}>
+              <UserPlus className="w-4 h-4 mr-1.5" /> Nuevo registro
+            </Button>
+            <Button variant="outline" className="flex-1 rounded-xl text-sm" asChild>
               <a href="/mis-trayectos" target="_blank" rel="noopener noreferrer">
-                <Phone className="w-3.5 h-3.5 mr-2" /> Ver todos mis trayectos con mi teléfono
+                <Phone className="w-4 h-4 mr-1.5" /> Mis trayectos
               </a>
             </Button>
           </div>
