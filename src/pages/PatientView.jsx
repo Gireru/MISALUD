@@ -18,17 +18,21 @@ export default function PatientView() {
   const [inputMsg, setInputMsg] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
 
-  const { data: patients } = useQuery({
+  const { data: patients, isLoading: loadingPatient, isError: errorPatient } = useQuery({
     queryKey: ['patient-by-token', token],
     queryFn: () => base44.entities.Patient.filter({ qr_token: token }),
     enabled: !!token,
+    retry: 2,
+    staleTime: 0,
   });
   const patient = patients?.[0];
 
-  const { data: journeys } = useQuery({
+  const { data: journeys, isLoading: loadingJourney, isError: errorJourney } = useQuery({
     queryKey: ['journey-for-patient', patient?.id],
     queryFn: () => base44.entities.ClinicalJourney.filter({ patient_id: patient.id }),
     enabled: !!patient?.id,
+    retry: 2,
+    staleTime: 0,
   });
   const journey = journeys?.[0];
 
@@ -75,11 +79,27 @@ export default function PatientView() {
     </div>
   );
 
-  if (!patient || !journey) return (
+  const isLoading = loadingPatient || (!!patient && loadingJourney);
+  const hasError = errorPatient || errorJourney || (patients && patients.length === 0) || (journeys && journeys.length === 0 && !loadingJourney);
+
+  if (isLoading) return (
     <div className="min-h-screen flex items-center justify-center bg-white">
       <div className="flex flex-col items-center gap-3">
         <div className="w-10 h-10 border-2 border-[#4B0082]/20 border-t-[#4B0082] rounded-full animate-spin" />
         <p style={{ fontFamily: '-apple-system, SF Pro Display, BlinkMacSystemFont, Segoe UI, sans-serif' }} className="text-xs text-gray-400">Cargando tu trayecto…</p>
+      </div>
+    </div>
+  );
+
+  if (hasError || !patient || !journey) return (
+    <div className="min-h-screen flex items-center justify-center bg-white px-6">
+      <div className="text-center">
+        <div className="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-4">
+          <Activity className="w-7 h-7 text-red-400" />
+        </div>
+        <h2 style={{ fontFamily: '-apple-system, SF Pro Display, BlinkMacSystemFont, Segoe UI, sans-serif' }} className="text-lg font-semibold text-gray-800 mb-2">No se encontró el trayecto</h2>
+        <p className="text-sm text-gray-400 mb-5">Verifica que el enlace o código QR sea correcto.</p>
+        <a href="/register" className="text-sm text-[#4B0082] underline">Ir al registro</a>
       </div>
     </div>
   );
