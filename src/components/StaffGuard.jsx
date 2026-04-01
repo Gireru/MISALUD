@@ -1,11 +1,14 @@
 import React from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 import { getAdminSession } from '@/lib/adminSession';
 import AppLayout from './layout/AppLayout';
 
+const STAFF_ROLES = ['admin', 'doctor'];
+const ADMIN_LOGIN_URL = '/admin-login?key=sdnexus2026';
+
 export default function StaffGuard() {
-  const { isAuthenticated, isLoadingAuth, isLoadingPublicSettings } = useAuth();
+  const { isAuthenticated, isLoadingAuth, isLoadingPublicSettings, user } = useAuth();
 
   if (isLoadingAuth || isLoadingPublicSettings) {
     return (
@@ -17,8 +20,14 @@ export default function StaffGuard() {
 
   const adminSession = getAdminSession();
 
+  // Logged in with Google but not a staff role → block
+  if (isAuthenticated && !STAFF_ROLES.includes(user?.role)) {
+    return <Navigate to={ADMIN_LOGIN_URL} replace />;
+  }
+
+  // Not authenticated at all and no local admin session → redirect to login
   if (!isAuthenticated && !adminSession) {
-    return <Navigate to="/admin-login" replace />;
+    return <Navigate to={ADMIN_LOGIN_URL} replace />;
   }
 
   return <AppLayout />;
