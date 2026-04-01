@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, MicOff, CheckCircle2, AlertCircle, QrCode } from 'lucide-react';
+import { Mic, MicOff, CheckCircle2, AlertCircle, QrCode, Square } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { QRCodeSVG } from 'qrcode.react';
 import { useVoice } from '@/lib/VoiceContext';
@@ -23,14 +23,15 @@ const STUDY_ALIASES = {
 };
 
 export default function VoiceRegistrationFlow() {
-  const { speak, transcript, clearTranscript, isListening, startListening, stopListening } = useVoice();
+  const { speak, isListening, startRecordingVoiceNote, stopRecordingVoiceNote } = useVoice();
   const [step, setStep] = useState('start');
   const [registrationData, setRegistrationData] = useState({ name: '', phone: '', studies: [] });
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [message, setMessage] = useState('');
   const [nextAction, setNextAction] = useState('');
-  const transcriptRef = useRef('');
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
 
   // Start registration flow
   useEffect(() => {
@@ -39,12 +40,7 @@ export default function VoiceRegistrationFlow() {
     }
   }, []);
 
-  // Process transcript when it updates
-  useEffect(() => {
-    if (transcript && step !== 'start' && step !== 'complete') {
-      transcriptRef.current = transcript;
-    }
-  }, [transcript, step]);
+
 
   const initializeFlow = async () => {
     setLoading(true);
@@ -52,103 +48,125 @@ export default function VoiceRegistrationFlow() {
       const res = await base44.functions.invoke('voiceRegistrationFlow', {
         action: 'start'
       });
-      const fullMessage = `${res.data.message}. Cuando termines de hablar, haz clic en cualquier parte de la pantalla para continuar.`;
+      const fullMessage = `${res.data.message}. Mantén presionado el micrófono para grabar tu respuesta.`;
       setMessage(fullMessage);
       speak(fullMessage);
       setStep('ask_name');
       setNextAction('process_name');
       setLoading(false);
-      setTimeout(() => {
-        clearTranscript();
-        startListening();
-      }, 1000);
     } catch (err) {
       setMessage('Error al iniciar el flujo');
       setLoading(false);
     }
   };
 
-  const processStep = async (action) => {
-    stopListening();
-    const input = transcriptRef.current.trim();
-    if (!input) {
-      const retryMsg = 'No escuché tu respuesta. Haz clic en la pantalla e intenta de nuevo.';
-      speak(retryMsg);
-      setTimeout(() => {
-        clearTranscript();
-        startListening();
-      }, 500);
-      return;
+  const startRecording = async () => {
+    audioChunksRef.current = [];
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      
+      mediaRecorder.ondataavailable = (e) => audioChunksRef.current.push(e.data);
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach(track => track.stop());
+      };
+      
+      mediaRecorder.start();
+    } catch (err) {
+      const errorMsg = 'No se pudo acceder al micrófono. Verifica los permisos.';
+      setMessage(errorMsg);
+      speak(errorMsg);
     }
+  };
 
+  const stopRecording = async (action) => {
+    if (!mediaRecorderRef.current) return;
+    
+    mediaRecorderRef.current.onstop = async () => {
+      const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+      await processAudio(audioBlob, action);
+    };
+    mediaRecorderRef.current.stop();
+  };
+
+  const processAudio = async (audioBlob, action) => {
     setLoading(true);
     try {
-      const res = await base44.functions.invoke('voiceRegistrationFlow', {
-        action: action,
-        currentData: registrationData,
-        transcript: input
+      const formData = new FormData();
+      formData.append('file', audioBlob, 'recording.webm');
+      formData.append('action', action);
+      formData.append('currentData', JSON.stringify(registrationData));
+
+      const res = await base44.functions.invoke('transcribeVoiceNote', {
+        audioBase64: await blobToBase64(audioBlob),
+        action,
+        currentData: registrationData
       });
 
-      if (res.data.error) {
-        // Confirmación de error con repetición
-        const confirmMessage = `Escuché: ${input}. ${res.data.error}. Cuando estés listo, haz clic en la pantalla para intentar de nuevo.`;
+      const transcript = res.data.transcript || '';
+
+      if (!transcript.trim()) {
+        const retryMsg = 'No entendí tu respuesta. Intenta de nuevo.';
+        setMessage(retryMsg);
+        speak(retryMsg);
+        setLoading(false);
+        return;
+      }
+
+      const flowRes = await base44.functions.invoke('voiceRegistrationFlow', {
+        action: action,
+        currentData: registrationData,
+        transcript: transcript
+      });
+
+      if (flowRes.data.error) {
+        const confirmMessage = `Escuché: ${transcript}. ${flowRes.data.error}. Intenta de nuevo.`;
         setMessage(confirmMessage);
         speak(confirmMessage);
         setLoading(false);
-        
-        setTimeout(() => {
-          clearTranscript();
-          startListening();
-        }, 2000);
         return;
       }
 
-      // Confirmación de respuesta correcta
-      const nextMsg = res.data.nextStep === 'complete' 
-        ? res.data.message 
-        : `Escuché: ${input}. ${res.data.message}. Cuando estés listo, haz clic en la pantalla para continuar.`;
+      const nextMsg = flowRes.data.nextStep === 'complete' 
+        ? flowRes.data.message 
+        : `Escuché: ${transcript}. ${flowRes.data.message}. Mantén presionado el micrófono para continuar.`;
       
       setMessage(nextMsg);
       speak(nextMsg);
-      setRegistrationData(res.data.data || registrationData);
-
+      setRegistrationData(flowRes.data.data || registrationData);
       setLoading(false);
 
-      if (res.data.nextStep === 'confirm') {
+      if (flowRes.data.nextStep === 'confirm') {
         setStep('confirm');
         setNextAction('complete_registration');
-      } else if (res.data.nextStep === 'ask_studies_more') {
+      } else if (flowRes.data.nextStep === 'ask_studies_more') {
         setStep('ask_studies');
         setNextAction('process_studies');
-      } else if (res.data.nextStep === 'complete') {
-        setResult(res.data.registrationData);
+      } else if (flowRes.data.nextStep === 'complete') {
+        setResult(flowRes.data.registrationData);
         setStep('complete');
-        return;
-      } else if (res.data.nextStep === 'ask_phone') {
+      } else if (flowRes.data.nextStep === 'ask_phone') {
         setStep('ask_phone');
         setNextAction('process_phone');
-      } else if (res.data.nextStep === 'ask_studies') {
+      } else if (flowRes.data.nextStep === 'ask_studies') {
         setStep('ask_studies');
         setNextAction('process_studies');
-      } else {
-        setStep(res.data.nextStep);
       }
-
-      setTimeout(() => {
-        clearTranscript();
-        startListening();
-      }, 2500);
     } catch (err) {
-      const errorMsg = 'Hubo un error. Haz clic en la pantalla para intentar de nuevo.';
+      const errorMsg = 'Hubo un error procesando tu respuesta. Intenta de nuevo.';
       setMessage(errorMsg);
       speak(errorMsg);
       setLoading(false);
-      
-      setTimeout(() => {
-        clearTranscript();
-        startListening();
-      }, 2000);
     }
+  };
+
+  const blobToBase64 = (blob) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result.split(',')[1]);
+      reader.readAsDataURL(blob);
+    });
   };
 
   if (step === 'complete' && result) {
@@ -203,16 +221,21 @@ export default function VoiceRegistrationFlow() {
     );
   }
 
-  const handleScreenClick = () => {
-    if (!loading && transcript) {
-      processStep(nextAction);
+  const handleMicMouseDown = () => {
+    if (!loading) {
+      startRecording();
+    }
+  };
+
+  const handleMicMouseUp = () => {
+    if (mediaRecorderRef.current) {
+      stopRecording(nextAction);
     }
   };
 
   return (
     <div 
-      className="min-h-screen bg-gradient-to-br from-[#4B0082]/5 to-[#008F4C]/5 flex items-center justify-center p-6 cursor-pointer"
-      onClick={handleScreenClick}
+      className="min-h-screen bg-gradient-to-br from-[#4B0082]/5 to-[#008F4C]/5 flex items-center justify-center p-6"
     >
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -242,17 +265,7 @@ export default function VoiceRegistrationFlow() {
           <p className="text-sm leading-relaxed text-gray-900">{message}</p>
         </motion.div>
 
-        {/* Transcript display */}
-        {transcript && !loading && step !== 'start' && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="p-4 rounded-xl bg-white border border-gray-200 mb-4"
-          >
-            <p className="text-[11px] text-gray-500 mb-1">Escuché:</p>
-            <p className="text-sm font-medium text-gray-900">{transcript}</p>
-          </motion.div>
-        )}
+
 
         {/* Current data display */}
         {(registrationData.name || registrationData.phone || registrationData.studies.length > 0) && (
@@ -286,27 +299,31 @@ export default function VoiceRegistrationFlow() {
           </div>
         )}
 
-        {/* Visual feedback for clickable area */}
-        {transcript && !loading && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center mt-6 px-4 py-3 rounded-xl bg-[#4B0082]/10 border border-[#4B0082]/20"
-          >
-            <p className="text-xs font-medium text-[#4B0082]">👆 Haz clic en cualquier parte de la pantalla para continuar</p>
-          </motion.div>
-        )}
+        {/* Mic button */}
+        <motion.button
+          onMouseDown={handleMicMouseDown}
+          onMouseUp={handleMicMouseUp}
+          onTouchStart={handleMicMouseDown}
+          onTouchEnd={handleMicMouseUp}
+          className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mt-8 transition-all"
+          style={{
+            background: isListening ? '#D32F2F' : '#4B0082',
+            boxShadow: isListening ? '0 0 40px rgba(211,47,47,0.4)' : '0 8px 24px rgba(75,0,130,0.3)',
+          }}
+          animate={isListening ? { scale: [1, 1.05, 1] } : {}}
+          transition={{ duration: 0.6, repeat: Infinity }}
+          disabled={loading}
+        >
+          {isListening ? (
+            <Square className="w-8 h-8 text-white" fill="white" />
+          ) : (
+            <Mic className="w-8 h-8 text-white" />
+          )}
+        </motion.button>
 
-        {/* Listening indicator */}
-        {isListening && !loading && (
-          <motion.div
-            animate={{ opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 1.5, repeat: Infinity }}
-            className="text-center mt-6 text-sm text-[#4B0082] font-medium"
-          >
-            🎤 Escuchando...
-          </motion.div>
-        )}
+        <p className="text-center mt-4 text-xs text-gray-500">
+          {isListening ? 'Grabando...' : 'Mantén presionado para grabar'}
+        </p>
       </motion.div>
     </div>
   );

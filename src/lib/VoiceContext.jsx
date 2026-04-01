@@ -1,4 +1,4 @@
-import React, { createContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useState, useCallback, useEffect, useRef } from 'react';
 
 export const VoiceContext = createContext();
 
@@ -8,6 +8,8 @@ export function VoiceProvider({ children }) {
   const [transcript, setTranscript] = useState('');
   const [recognitionSupported, setRecognitionSupported] = useState(false);
   const [synthSupported, setSynthSupported] = useState(false);
+  const recognitionRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
 
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -38,6 +40,8 @@ export function VoiceProvider({ children }) {
     if (!SpeechRecognition) return;
 
     const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
+    
     recognition.lang = 'es-MX';
     recognition.continuous = false;
     recognition.interimResults = true;
@@ -67,10 +71,9 @@ export function VoiceProvider({ children }) {
   }, []);
 
   const stopListening = useCallback(() => {
-    if (window.SpeechRecognition || window.webkitSpeechRecognition) {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
-      recognition.abort();
+    if (recognitionRef.current) {
+      recognitionRef.current.abort();
+      recognitionRef.current = null;
       setIsListening(false);
     }
   }, []);
@@ -82,6 +85,34 @@ export function VoiceProvider({ children }) {
   const stopSpeaking = useCallback(() => {
     window.speechSynthesis?.cancel();
     setIsSpeaking(false);
+  }, []);
+
+  const startRecordingVoiceNote = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      
+      const audioChunks = [];
+      mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        stream.getTracks().forEach(track => track.stop());
+        return audioBlob;
+      };
+      
+      mediaRecorder.start();
+      setIsListening(true);
+    } catch (err) {
+      console.error('Error accessing microphone:', err);
+    }
+  }, []);
+
+  const stopRecordingVoiceNote = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+      setIsListening(false);
+    }
   }, []);
 
   return (
@@ -97,6 +128,8 @@ export function VoiceProvider({ children }) {
         stopListening,
         clearTranscript,
         stopSpeaking,
+        startRecordingVoiceNote,
+        stopRecordingVoiceNote,
       }}
     >
       {children}
