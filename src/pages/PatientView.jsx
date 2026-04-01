@@ -129,14 +129,14 @@ export default function PatientView() {
 
   return (
     <div
-      className="min-h-screen bg-white"
+      className="min-h-screen bg-white flex flex-col items-center"
       style={{ fontFamily: '-apple-system, SF Pro Display, BlinkMacSystemFont, Segoe UI, sans-serif' }}
     >
       {/* Header hero */}
-      <div className="relative overflow-hidden px-6 pt-14 pb-10">
+      <div className="relative w-full max-w-2xl overflow-hidden px-6 pt-14 pb-10">
         <div className="absolute inset-0 bg-gradient-to-br from-[#4B0082]/6 via-white to-[#008F4C]/4 pointer-events-none" />
-        <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-          <div className="flex items-center gap-2 mb-6">
+        <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="text-center">
+          <div className="flex items-center gap-2 mb-6 justify-center">
             <div className="w-7 h-7 rounded-xl bg-[#4B0082] flex items-center justify-center">
               <Activity className="w-3.5 h-3.5 text-white" />
             </div>
@@ -153,7 +153,7 @@ export default function PatientView() {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.3 }}
-            className="inline-flex items-center gap-3 mt-6 rounded-2xl px-5 py-3"
+            className="flex items-center gap-3 mt-6 rounded-2xl px-5 py-3 justify-center mx-auto w-full"
             style={{ background: 'rgba(75,0,130,0.06)', border: '1px solid rgba(75,0,130,0.1)' }}
           >
             <div className="text-center">
@@ -179,7 +179,7 @@ export default function PatientView() {
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="px-6 mb-6 max-w-md mx-auto space-y-2"
+          className="w-full max-w-2xl px-6 mb-6 space-y-2"
         >
           {comments.map(c => (
             <motion.div
@@ -211,8 +211,8 @@ export default function PatientView() {
       )}
 
       {/* Vertical timeline */}
-      <div className="px-6 pb-32 max-w-md mx-auto">
-        <p className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase mb-8">Tu recorrido</p>
+      <div className="w-full max-w-2xl px-6 pb-32">
+        <p className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase mb-8 text-center">Tu recorrido</p>
         <div className="relative">
           {/* Background line */}
           <div className="absolute left-[27px] top-0 bottom-0 w-px bg-gray-100" />
