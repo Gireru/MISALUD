@@ -32,18 +32,21 @@ function formatDate(dateStr) {
   return new Date(dateStr).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+function makeToken() {
+  return Array.from({ length: 16 }, () => Math.floor(Math.random() * 36).toString(36)).join('');
+}
+
+// STEP: 'form' | 'loading' | 'duplicate' | 'success'
 export default function RegisterPatient() {
+  const [step, setStep] = useState('form');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [selectedStudies, setSelectedStudies] = useState([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState(null);
-
-  // Duplicate detection dialog
-  const [dupDialog, setDupDialog] = useState(null); // { patient, journey, dateStr }
+  const [dupData, setDupData] = useState(null);
 
   useEffect(() => {
-    if (result) {
+    if (step === 'success') {
       const end = Date.now() + 2000;
       const colors = ['#4B0082', '#7B00CC', '#008F4C', '#ffffff'];
       const frame = () => {
@@ -53,7 +56,7 @@ export default function RegisterPatient() {
       };
       frame();
     }
-  }, [result]);
+  }, [step]);
 
   const toggleStudy = (studyName) => {
     setSelectedStudies(prev =>
@@ -63,12 +66,17 @@ export default function RegisterPatient() {
     );
   };
 
-  const createNewJourney = async (patientId, patientName) => {
-    const modules = await base44.entities.ClinicalModule.list();
+  async function buildStudies(studies) {
+    let modules = [];
+    try {
+      modules = await base44.entities.ClinicalModule.list();
+    } catch (e) {
+      modules = [];
+    }
     const moduleMap = {};
     modules.forEach(m => { moduleMap[m.area_name] = m; });
 
-    const studies = selectedStudies.map(sName => {
+    const built = studies.map(sName => {
       const study = AVAILABLE_STUDIES.find(s => s.name === sName);
       const mod = moduleMap[study.area];
       return {
@@ -82,21 +90,24 @@ export default function RegisterPatient() {
       };
     });
 
-    studies.sort((a, b) => a._wait - b._wait);
-    studies.forEach(s => delete s._wait);
-    if (studies.length > 0) studies[0].status = 'in_progress';
-    const totalEta = studies.reduce((sum, s) => sum + s.estimated_minutes, 0);
+    built.sort((a, b) => a._wait - b._wait);
+    built.forEach(s => delete s._wait);
+    if (built.length > 0) built[0].status = 'in_progress';
+    return built;
+  }
 
+  async function createJourney(patientId, patientName, studies) {
+    const built = await buildStudies(studies);
+    const totalEta = built.reduce((sum, s) => sum + s.estimated_minutes, 0);
     await base44.entities.ClinicalJourney.create({
       patient_id: patientId,
       patient_name: patientName,
-      studies,
+      studies: built,
       total_eta_minutes: totalEta,
       status: 'active',
     });
-
     return totalEta;
-  };
+  }
 
   const handleRegister = async () => {
     if (!name.trim() || !phone.trim() || selectedStudies.length === 0) {
@@ -104,86 +115,80 @@ export default function RegisterPatient() {
       return;
     }
 
-    setIsSubmitting(true);
+    setStep('loading');
 
+    let existingPatients = [];
     try {
-      // Check for existing patient with same name + phone
-      const existingPatients = await base44.entities.Patient.filter({
-        name: name.trim(),
-        phone: phone.trim(),
-      });
+      existingPatients = await base44.entities.Patient.filter({ name: name.trim(), phone: phone.trim() });
+    } catch (e) {
+      existingPatients = [];
+    }
 
-      if (existingPatients.length > 0) {
-        const existing = existingPatients[0];
+    if (existingPatients.length > 0) {
+      const existing = existingPatients[0];
+      let journeys = [];
+      try {
+        journeys = await base44.entities.ClinicalJourney.filter({ patient_id: existing.id });
+      } catch (e) {
+        journeys = [];
+      }
+      const activeJourney = journeys.find(j => j.status === 'active') || journeys[0];
 
-        // Find their most recent active journey
-        const journeys = await base44.entities.ClinicalJourney.filter({ patient_id: existing.id });
-        const activeJourney = journeys.find(j => j.status === 'active') || journeys[0];
-
-        if (activeJourney) {
-          const createdDate = activeJourney.created_date;
-
-          if (isSameDay(createdDate)) {
-            setResult({ qrToken: existing.qr_token, patientName: existing.name, totalEta: activeJourney.total_eta_minutes, existing: true });
-            return;
-          } else {
-            setDupDialog({
-              patient: existing,
-              journey: activeJourney,
-              dateStr: formatDate(createdDate),
-            });
-            return;
-          }
+      if (activeJourney) {
+        if (isSameDay(activeJourney.created_date)) {
+          setResult({ qrToken: existing.qr_token, patientName: existing.name, totalEta: activeJourney.total_eta_minutes, existing: true });
+          setStep('success');
+          return;
+        } else {
+          setDupData({ patient: existing, journey: activeJourney, dateStr: formatDate(activeJourney.created_date) });
+          setStep('duplicate');
+          return;
         }
       }
+    }
 
-      // No duplicate → create fresh patient + journey
-      const qrToken = Array.from({ length: 16 }, () => Math.floor(Math.random() * 36).toString(36)).join('');
+    // New patient
+    try {
+      const qrToken = makeToken();
       const patient = await base44.entities.Patient.create({
         name: name.trim(),
         phone: phone.trim(),
         qr_token: qrToken,
         current_status: 'in_progress',
       });
-
-      const totalEta = await createNewJourney(patient.id, name.trim());
-
+      const totalEta = await createJourney(patient.id, name.trim(), selectedStudies);
       setResult({ qrToken, patientName: name.trim(), totalEta });
       setName('');
       setPhone('');
       setSelectedStudies([]);
+      setStep('success');
     } catch (err) {
+      console.error(err);
       toast.error('Error al registrar. Intenta de nuevo.');
-      console.error('Registration error:', err);
-    } finally {
-      setIsSubmitting(false);
+      setStep('form');
     }
   };
 
-  // User chose "view old journey"
   const handleViewOldJourney = () => {
-    const { patient, journey } = dupDialog;
-    setDupDialog(null);
+    const { patient, journey } = dupData;
     setResult({ qrToken: patient.qr_token, patientName: patient.name, totalEta: journey.total_eta_minutes, existing: true });
+    setStep('success');
   };
 
-  // User chose "create new journey for same patient"
   const handleCreateNewForExisting = async () => {
-    const { patient } = dupDialog;
-    setDupDialog(null);
-    setIsSubmitting(true);
-
+    const { patient } = dupData;
+    setStep('loading');
     try {
-      const totalEta = await createNewJourney(patient.id, patient.name);
+      const totalEta = await createJourney(patient.id, patient.name, selectedStudies);
       setResult({ qrToken: patient.qr_token, patientName: patient.name, totalEta });
       setName('');
       setPhone('');
       setSelectedStudies([]);
+      setStep('success');
     } catch (err) {
+      console.error(err);
       toast.error('Error al crear trayecto. Intenta de nuevo.');
-      console.error('Journey creation error:', err);
-    } finally {
-      setIsSubmitting(false);
+      setStep('form');
     }
   };
 
@@ -195,13 +200,21 @@ export default function RegisterPatient() {
         <h1 className="font-heading text-3xl font-bold">Registro de Paciente</h1>
       </motion.div>
 
-      {/* Duplicate dialog */}
-      <AnimatePresence>
-        {dupDialog && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
+      <AnimatePresence mode="wait">
+
+        {/* LOADING */}
+        {step === 'loading' && (
+          <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="flex flex-col items-center justify-center py-20 gap-4">
+            <div className="w-10 h-10 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+            <p className="text-sm text-muted-foreground">Registrando paciente…</p>
+          </motion.div>
+        )}
+
+        {/* DUPLICATE DIALOG */}
+        {step === 'duplicate' && dupData && (
+          <motion.div key="duplicate"
+            initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
             className="bg-card border border-yellow-200 rounded-2xl p-6 space-y-4"
           >
             <div className="flex items-start gap-3">
@@ -211,188 +224,146 @@ export default function RegisterPatient() {
               <div>
                 <h3 className="font-semibold text-base">Paciente ya registrado</h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Encontramos un registro de <strong>{dupDialog.patient.name}</strong> del <strong>{dupDialog.dateStr}</strong>.
+                  Encontramos un registro de <strong>{dupData.patient.name}</strong> del <strong>{dupData.dateStr}</strong>.
                   ¿Es el mismo trayecto o deseas iniciar uno nuevo hoy?
                 </p>
               </div>
             </div>
             <div className="flex flex-col gap-2">
               <Button className="w-full rounded-xl h-11" onClick={handleViewOldJourney}>
-                <QrCode className="w-4 h-4 mr-2" /> Ver trayecto del {dupDialog.dateStr}
+                <QrCode className="w-4 h-4 mr-2" /> Ver trayecto del {dupData.dateStr}
               </Button>
               <Button variant="outline" className="w-full rounded-xl h-11" onClick={handleCreateNewForExisting}>
                 <UserPlus className="w-4 h-4 mr-2" /> Crear nuevo trayecto para hoy
               </Button>
-              <Button variant="ghost" className="w-full rounded-xl h-10 text-sm text-muted-foreground" onClick={() => setDupDialog(null)}>
+              <Button variant="ghost" className="w-full rounded-xl h-10 text-sm text-muted-foreground" onClick={() => setStep('form')}>
                 Cancelar
               </Button>
             </div>
           </motion.div>
         )}
-      </AnimatePresence>
 
-      {result ? (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'spring', damping: 18, stiffness: 200 }}
-          className="bg-card border rounded-2xl p-8 text-center"
-        >
-          {/* Header */}
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: 'spring', damping: 12, stiffness: 300, delay: 0.1 }}
-            className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-3"
+        {/* SUCCESS */}
+        {step === 'success' && result && (
+          <motion.div key="success"
+            initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'spring', damping: 18, stiffness: 200 }}
+            className="bg-card border rounded-2xl p-8 text-center"
           >
-            <CheckCircle2 className="w-8 h-8 text-accent" />
-          </motion.div>
-
-          <motion.h2
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="font-heading text-xl font-bold mb-1"
-          >
-            {result.existing ? '¡Trayecto encontrado!' : '¡Registro exitoso!'}
-          </motion.h2>
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
-            className="text-sm text-muted-foreground mb-6"
-          >
-            {result.patientName} · ETA: {result.totalEta} min
-          </motion.p>
-
-          {/* QR Code */}
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35 }}
-            className="flex flex-col items-center mb-5"
-          >
-            <div className="p-4 bg-white rounded-2xl border shadow-sm inline-block mb-3">
-              <QRCodeSVG value={patientUrl} size={180} level="H" />
+            <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-3">
+              <CheckCircle2 className="w-8 h-8 text-accent" />
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs rounded-xl"
-              onClick={() => { navigator.clipboard.writeText(patientUrl); toast.success('Enlace copiado'); }}
-            >
-              <Copy className="w-3.5 h-3.5 mr-1.5" /> Copiar enlace del QR
-            </Button>
-          </motion.div>
+            <h2 className="font-heading text-xl font-bold mb-1">
+              {result.existing ? '¡Trayecto encontrado!' : '¡Registro exitoso!'}
+            </h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              {result.patientName} · ETA: {result.totalEta} min
+            </p>
 
-          {/* Primary CTA */}
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.45, type: 'spring', stiffness: 260, damping: 18 }}
-            className="mb-4"
-          >
-            <motion.a
-              href={patientUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              className="flex items-center justify-center gap-2 w-full h-14 rounded-2xl text-base font-semibold text-white"
-              style={{ background: 'linear-gradient(135deg, #4B0082, #7B00CC)', boxShadow: '0 8px 24px rgba(75,0,130,0.35)' }}
-            >
-              <QrCode className="w-5 h-5" /> Ver mi trayecto
-            </motion.a>
-          </motion.div>
+            <div className="flex flex-col items-center mb-5">
+              <div className="p-4 bg-white rounded-2xl border shadow-sm inline-block mb-3">
+                <QRCodeSVG value={patientUrl} size={180} level="H" />
+              </div>
+              <Button
+                variant="outline" size="sm" className="text-xs rounded-xl"
+                onClick={() => { navigator.clipboard.writeText(patientUrl); toast.success('Enlace copiado'); }}
+              >
+                <Copy className="w-3.5 h-3.5 mr-1.5" /> Copiar enlace del QR
+              </Button>
+            </div>
 
-          {/* Secondary buttons */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.55 }}
-            className="flex flex-col gap-2"
-          >
-            <Button variant="outline" className="w-full rounded-xl text-sm h-11" onClick={() => setResult(null)}>
-              <UserPlus className="w-4 h-4 mr-2 shrink-0" /> Nuevo registro
-            </Button>
-            <Button variant="outline" className="w-full rounded-xl text-sm h-11" asChild>
-              <a href="/mis-trayectos" target="_blank" rel="noopener noreferrer">
-                <Phone className="w-4 h-4 mr-2 shrink-0" /> Mis trayectos
+            <div className="mb-4">
+              <a
+                href={patientUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full h-14 rounded-2xl text-base font-semibold text-white"
+                style={{ background: 'linear-gradient(135deg, #4B0082, #7B00CC)', boxShadow: '0 8px 24px rgba(75,0,130,0.35)' }}
+              >
+                <QrCode className="w-5 h-5" /> Ver mi trayecto
               </a>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Button variant="outline" className="w-full rounded-xl text-sm h-11" onClick={() => { setResult(null); setStep('form'); }}>
+                <UserPlus className="w-4 h-4 mr-2 shrink-0" /> Nuevo registro
+              </Button>
+              <Button variant="outline" className="w-full rounded-xl text-sm h-11" asChild>
+                <a href="/mis-trayectos" target="_blank" rel="noopener noreferrer">
+                  <Phone className="w-4 h-4 mr-2 shrink-0" /> Mis trayectos
+                </a>
+              </Button>
+            </div>
+          </motion.div>
+        )}
+
+        {/* FORM */}
+        {step === 'form' && (
+          <motion.div key="form"
+            initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+            className="bg-card border rounded-2xl p-6 space-y-5"
+          >
+            <div className="space-y-3">
+              <div>
+                <Label className="text-xs font-medium">Nombre completo</Label>
+                <Input
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="Ej. María García López"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-xs font-medium">Teléfono <span className="text-red-500">*</span></Label>
+                <Input
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  placeholder="Ej. 55 1234 5678"
+                  className="mt-1"
+                  type="tel"
+                />
+                <p className="text-[11px] text-muted-foreground mt-1.5">📲 Por este número podrás consultar tus resultados de estudios.</p>
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs font-medium mb-3 block">Estudios requeridos</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {AVAILABLE_STUDIES.map(study => {
+                  const isSelected = selectedStudies.includes(study.name);
+                  return (
+                    <div
+                      key={study.name}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => toggleStudy(study.name)}
+                      onKeyDown={e => e.key === 'Enter' && toggleStudy(study.name)}
+                      className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all cursor-pointer select-none ${
+                        isSelected ? 'border-primary/30 bg-primary/5' : 'border-border hover:bg-muted/50'
+                      }`}
+                    >
+                      <Checkbox checked={isSelected} className="pointer-events-none shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium">{study.name}</p>
+                        <p className="text-[11px] text-muted-foreground">{study.area} · ~{study.minutes} min</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <Button
+              onClick={handleRegister}
+              disabled={!name.trim() || !phone.trim() || selectedStudies.length === 0}
+              className="w-full h-12 rounded-xl text-sm font-medium"
+            >
+              <QrCode className="w-4 h-4 mr-2" /> Registrar y generar trayecto
             </Button>
           </motion.div>
-        </motion.div>
-      ) : !dupDialog && (
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-card border rounded-2xl p-6 space-y-5"
-        >
-          <div className="space-y-3">
-            <div>
-              <Label className="text-xs font-medium">Nombre completo</Label>
-              <Input
-                value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder="Ej. María García López"
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label className="text-xs font-medium">Teléfono <span className="text-red-500">*</span></Label>
-              <Input
-                value={phone}
-                onChange={e => setPhone(e.target.value)}
-                placeholder="Ej. 55 1234 5678"
-                className="mt-1"
-                required
-              />
-              <p className="text-[11px] text-muted-foreground mt-1.5">📲 Por este número podrás consultar tus resultados de estudios.</p>
-            </div>
-          </div>
+        )}
 
-          <div>
-            <Label className="text-xs font-medium mb-3 block">Estudios requeridos</Label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {AVAILABLE_STUDIES.map(study => {
-                const isSelected = selectedStudies.includes(study.name);
-                return (
-                  <div
-                    key={study.name}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => toggleStudy(study.name)}
-                    onKeyDown={e => e.key === 'Enter' && toggleStudy(study.name)}
-                    className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all cursor-pointer select-none ${
-                      isSelected ? 'border-primary/30 bg-primary/5' : 'border-border hover:bg-muted/50'
-                    }`}
-                  >
-                    <Checkbox checked={isSelected} className="pointer-events-none shrink-0" />
-                    <div>
-                      <p className="text-sm font-medium">{study.name}</p>
-                      <p className="text-[11px] text-muted-foreground">{study.area} · ~{study.minutes} min</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <Button
-            onClick={handleRegister}
-            disabled={isSubmitting || !name.trim() || !phone.trim() || selectedStudies.length === 0}
-            className="w-full h-12 rounded-xl text-sm font-medium"
-          >
-            {isSubmitting ? (
-              <div className="w-5 h-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <>
-                <QrCode className="w-4 h-4 mr-2" /> Registrar y generar trayecto
-              </>
-            )}
-          </Button>
-        </motion.div>
-      )}
+      </AnimatePresence>
     </div>
   );
 }
