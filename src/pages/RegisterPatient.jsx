@@ -34,8 +34,8 @@ export default function RegisterPatient() {
   };
 
   const handleRegister = async () => {
-    if (!name.trim() || selectedStudies.length === 0) {
-      toast.error('Ingresa nombre y selecciona al menos un estudio');
+    if (!name.trim() || !phone.trim() || selectedStudies.length === 0) {
+      toast.error('Ingresa nombre, teléfono y selecciona al menos un estudio');
       return;
     }
 
@@ -160,13 +160,15 @@ export default function RegisterPatient() {
               />
             </div>
             <div>
-              <Label className="text-xs font-medium">Teléfono (opcional)</Label>
+              <Label className="text-xs font-medium">Teléfono <span className="text-red-500">*</span></Label>
               <Input
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
                 placeholder="Ej. 55 1234 5678"
                 className="mt-1"
+                required
               />
+              <p className="text-[11px] text-muted-foreground mt-1.5">📲 Por este número podrás consultar tus resultados de estudios.</p>
             </div>
           </div>
 
@@ -196,7 +198,7 @@ export default function RegisterPatient() {
 
           <Button
             onClick={handleRegister}
-            disabled={isSubmitting || !name.trim() || selectedStudies.length === 0}
+            disabled={isSubmitting || !name.trim() || !phone.trim() || selectedStudies.length === 0}
             className="w-full h-12 rounded-xl text-sm font-medium"
           >
             {isSubmitting ? (
