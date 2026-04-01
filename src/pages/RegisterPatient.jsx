@@ -60,55 +60,62 @@ export default function RegisterPatient() {
 
     setLoading(true);
 
-    const qrToken = makeToken();
-    const patientUrl = `${window.location.origin}/patient/view?token=${qrToken}`;
+    try {
+      const qrToken = makeToken();
+      const patientUrl = `${window.location.origin}/patient/view?token=${qrToken}`;
 
-    // 1. Create patient
-    const patient = await base44.entities.Patient.create({
-      name: name.trim(),
-      phone: phone.trim(),
-      qr_token: qrToken,
-      current_status: 'in_progress',
-    });
+      // 1. Create patient
+      const patient = await base44.entities.Patient.create({
+        name: name.trim(),
+        phone: phone.trim(),
+        qr_token: qrToken,
+        current_status: 'in_progress',
+      });
 
-    // 2. Build studies
-    let modules = [];
-    try { modules = await base44.entities.ClinicalModule.list(); } catch (e) { modules = []; }
-    const moduleMap = {};
-    modules.forEach(m => { moduleMap[m.area_name] = m; });
+      // 2. Build studies (modules are optional)
+      let modules = [];
+      try { modules = await base44.entities.ClinicalModule.list(); } catch (_) { modules = []; }
+      const moduleMap = {};
+      modules.forEach(m => { moduleMap[m.area_name] = m; });
 
-    const studies = selectedStudies.map(sName => {
-      const study = AVAILABLE_STUDIES.find(s => s.name === sName);
-      const mod = moduleMap[study.area];
-      return {
-        study_name: study.name,
-        area: study.area,
-        status: 'pending',
-        estimated_minutes: study.minutes + (mod?.avg_wait_minutes || 0),
-        cubicle: '',
-        preparation_note: study.prep,
-        _wait: mod?.avg_wait_minutes || 0,
-      };
-    });
-    studies.sort((a, b) => a._wait - b._wait);
-    studies.forEach(s => delete s._wait);
-    if (studies.length > 0) studies[0].status = 'in_progress';
-    const totalEta = studies.reduce((sum, s) => sum + s.estimated_minutes, 0);
+      const studies = selectedStudies.map(sName => {
+        const study = AVAILABLE_STUDIES.find(s => s.name === sName);
+        const mod = moduleMap[study.area];
+        return {
+          study_name: study.name,
+          area: study.area,
+          status: 'pending',
+          estimated_minutes: study.minutes + (mod?.avg_wait_minutes || 0),
+          cubicle: '',
+          preparation_note: study.prep,
+          _wait: mod?.avg_wait_minutes || 0,
+        };
+      });
+      studies.sort((a, b) => a._wait - b._wait);
+      studies.forEach(s => delete s._wait);
+      if (studies.length > 0) studies[0].status = 'in_progress';
+      const totalEta = studies.reduce((sum, s) => sum + s.estimated_minutes, 0);
 
-    // 3. Create journey
-    await base44.entities.ClinicalJourney.create({
-      patient_id: patient.id,
-      patient_name: name.trim(),
-      studies,
-      total_eta_minutes: totalEta,
-      status: 'active',
-    });
+      // 3. Create journey
+      await base44.entities.ClinicalJourney.create({
+        patient_id: patient.id,
+        patient_name: name.trim(),
+        studies,
+        total_eta_minutes: totalEta,
+        status: 'active',
+      });
 
-    setResult({ qrToken, patientName: name.trim(), totalEta, patientUrl });
-    setName('');
-    setPhone('');
-    setSelectedStudies([]);
-    setLoading(false);
+      setResult({ qrToken, patientName: name.trim(), totalEta, patientUrl });
+      setName('');
+      setPhone('');
+      setSelectedStudies([]);
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.message || String(err);
+      toast.error(`Error: ${msg}`);
+      console.error('Register error:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // ── SUCCESS SCREEN ──
