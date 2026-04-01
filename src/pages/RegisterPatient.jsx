@@ -8,6 +8,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { QrCode, UserPlus, CheckCircle2, Copy, Phone } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import { useEffect, useRef } from 'react';
+import confetti from 'canvas-confetti';
 
 const AVAILABLE_STUDIES = [
   { name: 'Análisis de Sangre', area: 'Laboratorio', minutes: 15, prep: 'Requiere ayuno de 8 horas' },
@@ -25,6 +27,20 @@ export default function RegisterPatient() {
   const [selectedStudies, setSelectedStudies] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState(null);
+
+  useEffect(() => {
+    if (result) {
+      // Burst confetti on success
+      const end = Date.now() + 2000;
+      const colors = ['#4B0082', '#7B00CC', '#008F4C', '#ffffff'];
+      const frame = () => {
+        confetti({ particleCount: 6, angle: 60, spread: 55, origin: { x: 0 }, colors });
+        confetti({ particleCount: 6, angle: 120, spread: 55, origin: { x: 1 }, colors });
+        if (Date.now() < end) requestAnimationFrame(frame);
+      };
+      frame();
+    }
+  }, [result]);
 
   const toggleStudy = (studyName) => {
     setSelectedStudies(prev =>
@@ -105,21 +121,45 @@ export default function RegisterPatient() {
 
       {result ? (
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
+          initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'spring', damping: 18, stiffness: 200 }}
           className="bg-card border rounded-2xl p-8 text-center"
         >
           {/* Header */}
-          <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-3">
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: 'spring', damping: 12, stiffness: 300, delay: 0.1 }}
+            className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-3"
+          >
             <CheckCircle2 className="w-8 h-8 text-accent" />
-          </div>
-          <h2 className="font-heading text-xl font-bold mb-1">¡Registro exitoso!</h2>
-          <p className="text-sm text-muted-foreground mb-6">
+          </motion.div>
+
+          <motion.h2
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="font-heading text-xl font-bold mb-1"
+          >
+            ¡Registro exitoso!
+          </motion.h2>
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            className="text-sm text-muted-foreground mb-6"
+          >
             {result.patientName} · ETA: {result.totalEta} min
-          </p>
+          </motion.p>
 
           {/* QR Code */}
-          <div className="flex flex-col items-center mb-4">
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35 }}
+            className="flex flex-col items-center mb-5"
+          >
             <div className="p-4 bg-white rounded-2xl border shadow-sm inline-block mb-3">
               <QRCodeSVG value={patientUrl} size={180} level="H" />
             </div>
@@ -131,37 +171,44 @@ export default function RegisterPatient() {
             >
               <Copy className="w-3.5 h-3.5 mr-1.5" /> Copiar enlace del QR
             </Button>
-          </div>
+          </motion.div>
 
           {/* Primary CTA - Ver trayecto */}
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="mb-3"
+            transition={{ delay: 0.45, type: 'spring', stiffness: 260, damping: 18 }}
+            className="mb-4"
           >
-            <Button
-              className="w-full h-14 rounded-2xl text-base font-semibold"
-              style={{ background: 'linear-gradient(135deg, #4B0082, #7B00CC)', boxShadow: '0 8px 24px rgba(75,0,130,0.3)' }}
-              asChild
+            <motion.a
+              href={patientUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              className="flex items-center justify-center gap-2 w-full h-14 rounded-2xl text-base font-semibold text-white"
+              style={{ background: 'linear-gradient(135deg, #4B0082, #7B00CC)', boxShadow: '0 8px 24px rgba(75,0,130,0.35)' }}
             >
-              <a href={patientUrl} target="_blank" rel="noopener noreferrer">
-                <QrCode className="w-5 h-5 mr-2" /> Ver mi trayecto
-              </a>
-            </Button>
+              <QrCode className="w-5 h-5" /> Ver mi trayecto
+            </motion.a>
           </motion.div>
 
           {/* Secondary buttons */}
-          <div className="flex gap-2">
-            <Button variant="outline" className="flex-1 rounded-xl text-sm" onClick={() => setResult(null)}>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.55 }}
+            className="grid grid-cols-2 gap-2"
+          >
+            <Button variant="outline" className="rounded-xl text-sm h-11" onClick={() => setResult(null)}>
               <UserPlus className="w-4 h-4 mr-1.5" /> Nuevo registro
             </Button>
-            <Button variant="outline" className="flex-1 rounded-xl text-sm" asChild>
+            <Button variant="outline" className="rounded-xl text-sm h-11" asChild>
               <a href="/mis-trayectos" target="_blank" rel="noopener noreferrer">
                 <Phone className="w-4 h-4 mr-1.5" /> Mis trayectos
               </a>
             </Button>
-          </div>
+          </motion.div>
         </motion.div>
       ) : (
         <motion.div
