@@ -59,6 +59,7 @@ function PatientCard({ journey, index, onUpdate }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
+  const [justCompleted, setJustCompleted] = useState(false);
 
   const color = getColor(journey);
   const autoPriority = getAutoPriority(journey.studies || [], journey.created_date);
@@ -85,6 +86,8 @@ function PatientCard({ journey, index, onUpdate }) {
     if (nextPending !== -1) updatedStudies[nextPending].status = 'in_progress';
 
     const allDone = updatedStudies.every(s => s.status === 'completed');
+    if (allDone) setJustCompleted(true);
+
     await base44.entities.ClinicalJourney.update(journey.id, {
       studies: updatedStudies,
       status: allDone ? 'completed' : 'active',
@@ -102,43 +105,100 @@ function PatientCard({ journey, index, onUpdate }) {
 
 
 
+  const completedCount = studies.filter(s => s.status === 'completed').length;
+  const progressPct = studies.length > 0 ? completedCount / studies.length : 0;
+
   return (
     <>
       <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: index * 0.07 }}
-        className="relative rounded-3xl p-5 overflow-hidden"
+        layout
+        initial={{ opacity: 0, y: 24, scale: 0.97 }}
+        animate={{
+          opacity: 1,
+          y: 0,
+          scale: justCompleted ? [1, 1.03, 1] : 1,
+        }}
+        exit={{ opacity: 0, scale: 0.95, y: -12 }}
+        transition={{
+          delay: index * 0.06,
+          duration: 0.4,
+          type: 'spring',
+          stiffness: 260,
+          damping: 22,
+        }}
+        whileHover={{
+          y: -3,
+          boxShadow: `0 8px 32px ${color.bg}30`,
+          transition: { duration: 0.2 },
+        }}
+        className="relative rounded-3xl p-5 overflow-hidden cursor-default"
         style={{
           background: 'white',
           boxShadow: `0 2px 20px ${color.bg}18`,
           border: `1px solid ${color.border}`,
         }}
       >
-        {/* Top accent line */}
-        <div
-          className="absolute top-0 left-0 right-0 h-1 rounded-t-3xl"
+        {/* Top accent line — animated shimmer */}
+        <motion.div
+          className="absolute top-0 left-0 right-0 h-1 rounded-t-3xl overflow-hidden"
           style={{ background: color.bg }}
+        >
+          <motion.div
+            className="absolute inset-0 opacity-50"
+            style={{ background: `linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent)` }}
+            animate={{ x: ['-100%', '200%'] }}
+            transition={{ duration: 2.2, repeat: Infinity, ease: 'linear', repeatDelay: 1.5 }}
+          />
+        </motion.div>
+
+        {/* Progress bar behind card */}
+        <motion.div
+          className="absolute bottom-0 left-0 h-0.5 rounded-b-3xl"
+          style={{ background: color.bg, opacity: 0.25 }}
+          initial={{ width: 0 }}
+          animate={{ width: `${progressPct * 100}%` }}
+          transition={{ duration: 0.8, ease: 'easeOut' }}
         />
 
         {/* Priority badge */}
-        <div className="absolute top-3 right-4 flex items-center gap-1">
+        <motion.div
+          className="absolute top-3 right-4 flex items-center gap-1"
+          initial={{ opacity: 0, x: 8 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: index * 0.06 + 0.2 }}
+        >
+          {autoPriority === 'red' && (
+            <motion.div
+              className="w-1.5 h-1.5 rounded-full mr-0.5"
+              style={{ background: color.bg }}
+              animate={{ opacity: [1, 0.2, 1] }}
+              transition={{ duration: 0.9, repeat: Infinity }}
+            />
+          )}
           <span
             className="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider"
             style={{ background: color.light, color: color.bg }}
           >
             {color.label}
           </span>
-        </div>
+        </motion.div>
 
         {/* Header row */}
         <div className="flex items-center gap-3 mb-3 mt-1">
           <motion.div
-            className="w-11 h-11 rounded-2xl flex items-center justify-center text-white font-bold text-sm shrink-0"
+            className="w-11 h-11 rounded-2xl flex items-center justify-center text-white font-bold text-sm shrink-0 relative overflow-hidden"
             style={{ background: color.bg, fontFamily: '-apple-system, SF Pro Display, sans-serif' }}
-            whileHover={{ scale: 1.05 }}
+            whileHover={{ scale: 1.08, rotate: 3 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 15 }}
           >
             {getInitials(journey.patient_name)}
+            <motion.div
+              className="absolute inset-0"
+              style={{ background: 'rgba(255,255,255,0.15)' }}
+              initial={{ x: '-100%' }}
+              whileHover={{ x: '100%' }}
+              transition={{ duration: 0.4 }}
+            />
           </motion.div>
 
           <div className="flex-1 min-w-0">
@@ -180,6 +240,7 @@ function PatientCard({ journey, index, onUpdate }) {
           {studies.map((s, si) => (
             <motion.button
               key={si}
+              layout
               className="relative flex-1 h-7 rounded-xl flex items-center justify-center overflow-hidden"
               style={{
                 background: s.status === 'completed'
@@ -190,23 +251,42 @@ function PatientCard({ journey, index, onUpdate }) {
                 border: s.status === 'in_progress' ? `1.5px solid ${color.bg}` : '1.5px solid transparent',
                 cursor: s.status === 'in_progress' ? 'pointer' : 'default',
               }}
+              initial={{ opacity: 0, scale: 0.7 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: index * 0.06 + si * 0.05, type: 'spring', stiffness: 320, damping: 18 }}
               onClick={() => s.status === 'in_progress' && markStudyComplete(si)}
-              whileHover={s.status === 'in_progress' ? { scale: 1.04 } : {}}
-              whileTap={s.status === 'in_progress' ? { scale: 0.96 } : {}}
+              whileHover={s.status === 'in_progress' ? { scale: 1.1, y: -2 } : {}}
+              whileTap={s.status === 'in_progress' ? { scale: 0.9 } : {}}
               title={s.study_name}
             >
-              {s.status === 'completed' ? (
-                <CheckCircle2 className="w-3.5 h-3.5 text-white" />
-              ) : s.status === 'in_progress' ? (
-                <motion.div
-                  className="w-2 h-2 rounded-full"
-                  style={{ background: color.bg }}
-                  animate={{ scale: [1, 1.5, 1] }}
-                  transition={{ duration: 1.4, repeat: Infinity }}
-                />
-              ) : (
-                <div className="w-1.5 h-1.5 rounded-full bg-gray-300" />
-              )}
+              <AnimatePresence mode="wait">
+                {s.status === 'completed' ? (
+                  <motion.div
+                    key="done"
+                    initial={{ scale: 0, rotate: -90 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    exit={{ scale: 0 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 14 }}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                  </motion.div>
+                ) : s.status === 'in_progress' ? (
+                  <motion.div
+                    key="active"
+                    className="w-2 h-2 rounded-full"
+                    style={{ background: color.bg }}
+                    animate={{ scale: [1, 1.6, 1], opacity: [1, 0.6, 1] }}
+                    transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+                  />
+                ) : (
+                  <motion.div
+                    key="pending"
+                    className="w-1.5 h-1.5 rounded-full bg-gray-300"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                  />
+                )}
+              </AnimatePresence>
             </motion.button>
           ))}
         </div>
@@ -222,16 +302,21 @@ function PatientCard({ journey, index, onUpdate }) {
           {currentStudy && (
             <motion.button
               onClick={() => markStudyComplete(currentIdx)}
-              className="flex-1 py-2.5 rounded-2xl text-xs font-semibold transition-all"
+              className="flex-1 py-2.5 rounded-2xl text-xs font-semibold relative overflow-hidden"
               style={{
                 background: color.light,
                 color: color.bg,
                 border: `1px solid ${color.border}`,
                 fontFamily: '-apple-system, SF Pro Text, sans-serif',
               }}
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={{ scale: 1.02, y: -1 }}
+              whileTap={{ scale: 0.96 }}
             >
+              <motion.div
+                className="absolute inset-0 opacity-0"
+                style={{ background: color.bg }}
+                whileHover={{ opacity: 0.06 }}
+              />
               ✓ Completar: {currentStudy.study_name}
             </motion.button>
           )}
@@ -334,19 +419,23 @@ function PatientCard({ journey, index, onUpdate }) {
 export default function PatientBubbleFlow({ journeys, onUpdate }) {
   if (journeys.length === 0) {
     return (
-      <div className="text-center py-16 text-gray-400 text-sm">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-center py-16 text-gray-400 text-sm"
+      >
         No hay trayectos activos en este momento
-      </div>
+      </motion.div>
     );
   }
 
   const sorted = sortByPriority(journeys);
 
   return (
-    <>
+    <AnimatePresence mode="popLayout">
       {sorted.map((journey, i) => (
         <PatientCard key={journey.id} journey={journey} index={i} onUpdate={onUpdate} />
       ))}
-    </>
+    </AnimatePresence>
   );
 }
