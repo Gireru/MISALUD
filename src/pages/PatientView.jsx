@@ -255,31 +255,59 @@ export default function PatientView() {
         }}
       />
 
-      {/* Glassmorphism FAB */}
-      <motion.button
-        onClick={() => {
-          setChatOpen(true);
-          speak('Abriendo asistente');
-        }}
-        className="fixed bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2.5 px-6 py-3.5 rounded-2xl z-40"
-        style={{
-          background: 'rgba(255,255,255,0.7)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          border: '1px solid rgba(126,217,87,0.15)',
-          boxShadow: '0 8px 32px rgba(126,217,87,0.12), 0 2px 8px rgba(0,0,0,0.06)',
-        }}
-        whileHover={{ scale: 1.04, boxShadow: '0 12px 40px rgba(126,217,87,0.2)' }}
-        whileTap={{ scale: 0.97 }}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 1 }}
-      >
-        <div className="w-6 h-6 rounded-lg bg-[#7ED957] flex items-center justify-center">
-          <MessageSquarePlus className="w-3.5 h-3.5 text-white" />
-        </div>
-        <span className="text-[13px] font-medium text-gray-800">+ Asistente</span>
-      </motion.button>
+      {/* AI Assistant FAB */}
+      <div className="fixed bottom-7 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-2">
+        {/* Hint label */}
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.6 }}
+          className="px-3 py-1 rounded-full text-[11px] font-medium text-white"
+          style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)' }}
+        >
+          ¿Tienes dudas? ¡Pregúntame!
+        </motion.div>
+
+        <motion.button
+          onClick={() => {
+            setChatOpen(true);
+            speak('Abriendo asistente');
+          }}
+          className="relative flex items-center gap-3 px-6 py-4 rounded-2xl text-white overflow-hidden"
+          style={{
+            background: 'linear-gradient(135deg, #7ED957 0%, #3dba1e 100%)',
+            boxShadow: '0 6px 28px rgba(126,217,87,0.55), 0 2px 8px rgba(0,0,0,0.1)',
+          }}
+          whileHover={{ scale: 1.05, boxShadow: '0 10px 36px rgba(126,217,87,0.7)' }}
+          whileTap={{ scale: 0.96 }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.2, type: 'spring', stiffness: 260, damping: 20 }}
+        >
+          {/* Pulse ring */}
+          <motion.div
+            className="absolute inset-0 rounded-2xl"
+            style={{ border: '2px solid rgba(255,255,255,0.4)' }}
+            animate={{ scale: [1, 1.08, 1], opacity: [0.6, 0, 0.6] }}
+            transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+          />
+
+          {/* Icon with white bg circle */}
+          <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+            <MessageSquarePlus className="w-5 h-5 text-white" />
+          </div>
+
+          <div className="text-left">
+            <p className="text-[14px] font-bold leading-tight">Asistente IA</p>
+            <p className="text-[11px] font-normal opacity-85 leading-tight">Resuelvo tus dudas al instante</p>
+          </div>
+
+          {/* Arrow indicator */}
+          <div className="ml-1 w-6 h-6 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+            <span className="text-white text-xs font-bold">›</span>
+          </div>
+        </motion.button>
+      </div>
 
       {/* Chat overlay */}
       <AnimatePresence>
