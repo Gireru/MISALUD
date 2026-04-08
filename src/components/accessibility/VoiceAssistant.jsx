@@ -38,7 +38,7 @@ export default function VoiceAssistant({ onVoiceCommand = null }) {
         onClick={handleMicClick}
         className="fixed bottom-24 right-6 z-40 w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-all"
         style={{
-          background: isListening ? 'linear-gradient(135deg, #ff2d55, #ff5a7a)' : 'linear-gradient(135deg, #4B0082, #7B00CC)',
+          background: isListening ? 'linear-gradient(135deg, #ff2d55, #ff5a7a)' : 'linear-gradient(135deg, #3dba1e, #7ED957)',
           border: isListening ? '2px solid rgba(255,45,85,0.5)' : 'none',
         }}
         whileHover={{ scale: 1.1 }}
