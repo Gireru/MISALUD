@@ -82,35 +82,39 @@ function getSteps(studyName) {
   ];
 }
 
-// ── Hook: progressively tick steps, call onAllDone when finished ───
-function useProgressiveSteps(isCompleted, stepCount, onAllDone) {
-  const [checkedCount, setCheckedCount] = useState(0);
+// ── Hook: progressively tick steps when completed, otherwise use DB value ───
+function useProgressiveSteps(isCompleted, stepCount, onAllDone, dbStepsDone = 0) {
+  const [checkedCount, setCheckedCount] = useState(dbStepsDone);
   const prevCompleted = useRef(false);
 
+  // Keep in sync with DB value when not yet completed
   useEffect(() => {
-    // Reset when study goes back to not-completed (edge case)
     if (!isCompleted) {
-      setCheckedCount(0);
+      setCheckedCount(dbStepsDone);
+    }
+  }, [dbStepsDone, isCompleted]);
+
+  useEffect(() => {
+    if (!isCompleted) {
       prevCompleted.current = false;
       return;
     }
-    // Only start ticking if we just transitioned to completed
     if (prevCompleted.current) return;
     prevCompleted.current = true;
 
-    let step = 0;
+    let step = checkedCount;
     const tick = () => {
       step += 1;
       setCheckedCount(step);
       if (step < stepCount) {
         setTimeout(tick, 600);
       } else {
-        // All steps ticked — fire overlay after a short pause
         setTimeout(onAllDone, 400);
       }
     };
-    setTimeout(tick, 300);
-  }, [isCompleted, stepCount, onAllDone]);
+    if (step < stepCount) setTimeout(tick, 300);
+    else setTimeout(onAllDone, 400);
+  }, [isCompleted]);
 
   return checkedCount;
 }
@@ -232,11 +236,13 @@ export default function LuxuryTimelineNode({ study, index, isLast, onStudyComple
   const color = getColor(index);
   const steps = getSteps(study.study_name);
 
-  // Progressively tick steps when study completes, then fire onStudyCompleted
+  // Use steps_done from DB for real-time sync; fall back to progressive animation on completion
+  const dbStepsDone = study.steps_done || 0;
   const checkedCount = useProgressiveSteps(
     isCompleted,
     steps.length,
-    onStudyCompleted || (() => {})
+    onStudyCompleted || (() => {}),
+    dbStepsDone
   );
 
   return (

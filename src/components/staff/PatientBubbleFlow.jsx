@@ -113,8 +113,6 @@ function PatientCard({ journey, index, onUpdate }) {
   const [deleting, setDeleting] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [justCompleted, setJustCompleted] = useState(false);
-  // stepsDone[studyIndex] = number of steps checked for that study
-  const [stepsDone, setStepsDone] = useState({});
 
   const color = getColor(journey);
   const autoPriority = getAutoPriority(journey.studies || [], journey.created_date);
@@ -132,14 +130,15 @@ function PatientCard({ journey, index, onUpdate }) {
     staleTime: 30000,
   });
 
-  const markStep = (studyIndex, stepIndex) => {
-    const steps = getSteps(studies[studyIndex]?.study_name || '');
-    const current = stepsDone[studyIndex] || 0;
-    // only allow ticking the next step in order
+  const markStep = async (studyIndex, stepIndex) => {
+    const updatedStudies = [...(journey.studies || [])];
+    const study = updatedStudies[studyIndex];
+    const steps = getSteps(study?.study_name || '');
+    const current = study?.steps_done || 0;
     if (stepIndex !== current) return;
     const next = current + 1;
-    setStepsDone(prev => ({ ...prev, [studyIndex]: next }));
-    // if all steps done, mark the whole study complete
+    updatedStudies[studyIndex] = { ...study, steps_done: next };
+    await base44.entities.ClinicalJourney.update(journey.id, { studies: updatedStudies });
     if (next >= steps.length) {
       setTimeout(() => markStudyComplete(studyIndex), 400);
     }
@@ -363,7 +362,7 @@ function PatientCard({ journey, index, onUpdate }) {
         {/* Step-by-step checklist for current study */}
         {currentStudy && (() => {
           const steps = getSteps(currentStudy.study_name);
-          const done = stepsDone[currentIdx] || 0;
+          const done = currentStudy.steps_done || 0;
           return (
             <motion.div
               initial={{ opacity: 0, y: 6 }}
