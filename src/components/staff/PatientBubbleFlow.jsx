@@ -1,10 +1,63 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, Phone, AlertTriangle, Trash2, MessageSquare } from 'lucide-react';
+import { CheckCircle2, Phone, AlertTriangle, Trash2, MessageSquare, Check, Bell, Activity, FileText } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import EmergencyCodeModal from './EmergencyCodeModal';
 import DoctorNotesPanel from './DoctorNotesPanel';
+import { CompletionOverlay } from '../patient/LuxuryTimelineNode';
+
+// ── Mirror of getSteps from LuxuryTimelineNode ──────────────────────
+function getSteps(studyName) {
+  const l = studyName.toLowerCase();
+  if (l.includes('tórax') || l.includes('torax') || l.includes('radiograf'))
+    return [
+      { label: 'Espera a que el médico llame tu nombre' },
+      { label: 'Radiografía en proceso' },
+      { label: 'Entrega de resultados por la tarde' },
+    ];
+  if (l.includes('sangre') || l.includes('laborator'))
+    return [
+      { label: 'Registra tu turno en ventanilla' },
+      { label: 'Toma de muestra en proceso' },
+      { label: 'Resultados listos en 24–48 h' },
+    ];
+  if (l.includes('ultrasonido') || l.includes('4d'))
+    return [
+      { label: 'Espera tu turno en sala de ultrasonido' },
+      { label: 'Estudio de ultrasonido en proceso' },
+      { label: 'El médico entrega reporte al finalizar' },
+    ];
+  if (l.includes('electrocardiograma'))
+    return [
+      { label: 'Espera que el técnico te indique' },
+      { label: 'Electrocardiograma en proceso' },
+      { label: 'Resultados inmediatos' },
+    ];
+  if (l.includes('resonancia'))
+    return [
+      { label: 'Retira objetos metálicos y espera' },
+      { label: 'Resonancia en proceso (~40 min)' },
+      { label: 'Resultados disponibles en 24 h' },
+    ];
+  if (l.includes('tomograf'))
+    return [
+      { label: 'Espera indicación del técnico' },
+      { label: 'Tomografía en proceso' },
+      { label: 'Resultados disponibles en 24 h' },
+    ];
+  if (l.includes('vista') || l.includes('lentes'))
+    return [
+      { label: 'Espera tu turno en optometría' },
+      { label: 'Examen de vista en proceso' },
+      { label: 'Receta lista al finalizar' },
+    ];
+  return [
+    { label: 'Espera a que llamen tu nombre' },
+    { label: 'Estudio en proceso' },
+    { label: 'Resultados disponibles próximamente' },
+  ];
+}
 
 // ── Priority color palette ──────────────────────────────────────────
 const PRIORITY = {
@@ -60,6 +113,8 @@ function PatientCard({ journey, index, onUpdate }) {
   const [deleting, setDeleting] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [justCompleted, setJustCompleted] = useState(false);
+  // stepsDone[studyIndex] = number of steps checked for that study
+  const [stepsDone, setStepsDone] = useState({});
 
   const color = getColor(journey);
   const autoPriority = getAutoPriority(journey.studies || [], journey.created_date);
@@ -76,6 +131,19 @@ function PatientCard({ journey, index, onUpdate }) {
     enabled: !!journey.patient_id,
     staleTime: 30000,
   });
+
+  const markStep = (studyIndex, stepIndex) => {
+    const steps = getSteps(studies[studyIndex]?.study_name || '');
+    const current = stepsDone[studyIndex] || 0;
+    // only allow ticking the next step in order
+    if (stepIndex !== current) return;
+    const next = current + 1;
+    setStepsDone(prev => ({ ...prev, [studyIndex]: next }));
+    // if all steps done, mark the whole study complete
+    if (next >= steps.length) {
+      setTimeout(() => markStudyComplete(studyIndex), 400);
+    }
+  };
 
   const markStudyComplete = async (studyIndex) => {
     const updatedStudies = [...(journey.studies || [])];
@@ -295,31 +363,84 @@ function PatientCard({ journey, index, onUpdate }) {
           {studies.map(s => s.study_name).join(' → ')}
         </p>
 
-
+        {/* Step-by-step checklist for current study */}
+        {currentStudy && (() => {
+          const steps = getSteps(currentStudy.study_name);
+          const done = stepsDone[currentIdx] || 0;
+          return (
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-3 rounded-2xl p-3 space-y-2"
+              style={{ background: color.light, border: `1px solid ${color.bg}22` }}
+            >
+              <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: color.bg }}>
+                Pasos: {currentStudy.study_name}
+              </p>
+              {steps.map((step, si) => {
+                const isDone = si < done;
+                const isNext = si === done;
+                return (
+                  <motion.button
+                    key={si}
+                    onClick={() => markStep(currentIdx, si)}
+                    disabled={isDone || !isNext}
+                    className="w-full flex items-center gap-2.5 text-left rounded-xl px-2.5 py-2 transition-all"
+                    style={{
+                      background: isDone ? `${color.bg}18` : isNext ? 'white' : 'transparent',
+                      border: isNext ? `1px solid ${color.bg}40` : '1px solid transparent',
+                      cursor: isNext ? 'pointer' : 'default',
+                      opacity: !isDone && !isNext ? 0.45 : 1,
+                    }}
+                    whileHover={isNext ? { scale: 1.01 } : {}}
+                    whileTap={isNext ? { scale: 0.97 } : {}}
+                  >
+                    <motion.div
+                      className="w-5 h-5 rounded-lg flex items-center justify-center shrink-0"
+                      style={{ background: isDone ? color.bg : isNext ? `${color.bg}20` : 'rgba(0,0,0,0.06)' }}
+                      animate={isDone ? { scale: [1, 1.25, 1] } : {}}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <AnimatePresence mode="wait">
+                        {isDone ? (
+                          <motion.div key="check" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
+                            <Check className="w-3 h-3 text-white" strokeWidth={3} />
+                          </motion.div>
+                        ) : (
+                          <motion.div key="dot" className="w-1.5 h-1.5 rounded-full" style={{ background: isNext ? color.bg : '#ccc' }} />
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                    <div className="relative flex-1 overflow-hidden">
+                      <p className="text-xs leading-snug" style={{ color: isDone ? color.bg : isNext ? '#333' : '#aaa', opacity: isDone ? 0.6 : 1 }}>
+                        {step.label}
+                      </p>
+                      <AnimatePresence>
+                        {isDone && (
+                          <motion.div
+                            className="absolute top-1/2 left-0 h-px"
+                            style={{ background: color.bg, top: '50%' }}
+                            initial={{ width: 0 }}
+                            animate={{ width: '100%' }}
+                            transition={{ duration: 0.3, ease: 'easeOut' }}
+                          />
+                        )}
+                      </AnimatePresence>
+                    </div>
+                    {isNext && (
+                      <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full shrink-0" style={{ background: color.bg, color: 'white' }}>
+                        Tachar
+                      </span>
+                    )}
+                  </motion.button>
+                );
+              })}
+            </motion.div>
+          );
+        })()}
 
         {/* Action buttons */}
         <div className="flex gap-2 mt-3">
-          {currentStudy && (
-            <motion.button
-              onClick={() => markStudyComplete(currentIdx)}
-              className="flex-1 py-2.5 rounded-2xl text-xs font-semibold relative overflow-hidden"
-              style={{
-                background: color.light,
-                color: color.bg,
-                border: `1px solid ${color.border}`,
-                fontFamily: '-apple-system, SF Pro Text, sans-serif',
-              }}
-              whileHover={{ scale: 1.02, y: -1 }}
-              whileTap={{ scale: 0.96 }}
-            >
-              <motion.div
-                className="absolute inset-0 opacity-0"
-                style={{ background: color.bg }}
-                whileHover={{ opacity: 0.06 }}
-              />
-              ✓ Completar: {currentStudy.study_name}
-            </motion.button>
-          )}
 
           <motion.button
             onClick={() => setNotesOpen(true)}
@@ -391,6 +512,16 @@ function PatientCard({ journey, index, onUpdate }) {
           )}
         </div>
       </motion.div>
+
+      <AnimatePresence>
+        {justCompleted && (
+          <CompletionOverlay
+            studyName={journey.patient_name}
+            studyIndex={0}
+            onDone={() => setJustCompleted(false)}
+          />
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {emergencyOpen && (
