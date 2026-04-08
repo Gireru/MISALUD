@@ -317,14 +317,11 @@ function PatientCard({ journey, index, onUpdate }) {
                   ? color.light
                   : '#f5f5f7',
                 border: s.status === 'in_progress' ? `1.5px solid ${color.bg}` : '1.5px solid transparent',
-                cursor: s.status === 'in_progress' ? 'pointer' : 'default',
+                cursor: 'default',
               }}
               initial={{ opacity: 0, scale: 0.7 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: index * 0.06 + si * 0.05, type: 'spring', stiffness: 320, damping: 18 }}
-              onClick={() => s.status === 'in_progress' && markStudyComplete(si)}
-              whileHover={s.status === 'in_progress' ? { scale: 1.1, y: -2 } : {}}
-              whileTap={s.status === 'in_progress' ? { scale: 0.9 } : {}}
               title={s.study_name}
             >
               <AnimatePresence mode="wait">
