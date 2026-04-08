@@ -32,6 +32,7 @@ export default function PatientView() {
   ]);
   const [inputMsg, setInputMsg] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
+  const [justCompletedIdx, setJustCompletedIdx] = useState(null);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['patient-journey-by-token', token],
@@ -57,6 +58,15 @@ export default function PatientView() {
     if (!journey?.id) return;
     const unsub1 = base44.entities.ClinicalJourney.subscribe((event) => {
       if (event.id === journey.id) {
+        // Detect which study just became completed
+        if (event.data?.studies && journey.studies) {
+          const newStudies = event.data.studies;
+          const oldStudies = journey.studies;
+          const idx = newStudies.findIndex((s, i) =>
+            s.status === 'completed' && oldStudies[i]?.status !== 'completed'
+          );
+          if (idx !== -1) setJustCompletedIdx(idx);
+        }
         queryClient.invalidateQueries({ queryKey: ['patient-journey-by-token', token] });
       }
     });
