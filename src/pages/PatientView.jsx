@@ -7,8 +7,6 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import LuxuryTimelineNode, { CompletionOverlay } from '../components/patient/LuxuryTimelineNode';
 import VoiceAssistant from '../components/accessibility/VoiceAssistant';
-import { useVoice } from '@/lib/VoiceContext';
-
 export default function PatientView() {
   // Robust token parsing for all browsers/devices
   const getToken = () => {
@@ -25,7 +23,6 @@ export default function PatientView() {
   };
   const token = getToken();
   const queryClient = useQueryClient();
-  const { speak } = useVoice();
   const [chatOpen, setChatOpen] = useState(false);
   const [messages, setMessages] = useState([
     { role: 'assistant', content: 'Hola, soy tu asistente. ¿Tienes alguna duda sobre tu visita?' }
@@ -73,7 +70,6 @@ export default function PatientView() {
     if (!inputMsg.trim() || aiLoading) return;
     const text = inputMsg.trim();
     setInputMsg('');
-    speak(text);
     setMessages(prev => [...prev, { role: 'user', content: text }]);
     setAiLoading(true);
     try {
@@ -82,7 +78,6 @@ export default function PatientView() {
         patientName: patient?.name || '',
       });
       const reply = res.data?.reply || 'Lo siento, no pude responder.';
-      speak(reply);
       setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Hubo un error al conectar con el asistente.' }]);
@@ -260,10 +255,8 @@ export default function PatientView() {
         onVoiceCommand={(command) => {
           if (command.includes('chat') || command.includes('asistente')) {
             setChatOpen(true);
-            speak('Abriendo asistente');
           } else if (command.includes('cerrar') && chatOpen) {
             setChatOpen(false);
-            speak('Cerrando asistente');
           }
         }}
       />
@@ -289,7 +282,6 @@ export default function PatientView() {
         <motion.button
           onClick={() => {
             setChatOpen(true);
-            speak('¡Hola! Soy tu asistente. ¿En qué puedo ayudarte?');
           }}
           className="relative flex items-center gap-3 pl-2 pr-5 py-2 rounded-full text-white overflow-hidden"
           style={{
