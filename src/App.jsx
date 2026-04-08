@@ -12,7 +12,7 @@ import StaffDashboard from './pages/StaffDashboard';
 import PatientList from './pages/PatientList';
 
 // Public pages
-import RegisterPatient from './pages/RegisterPatient.js';
+import RegisterPatient from './pages/RegisterPatient';
 import PatientView from './pages/PatientView';
 import MisTrayectos from './pages/MisTrayectos';
 import AdminLogin from './pages/AdminLogin';
