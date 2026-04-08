@@ -54,19 +54,19 @@ export default function LuxuryTimelineNode({ study, index, isLast }) {
               className="absolute inset-0 rounded-full"
               animate={{ scale: [1, 1.35, 1], opacity: [0.4, 0, 0.4] }}
               transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
-              style={{ background: 'radial-gradient(circle, rgba(75,0,130,0.3) 0%, transparent 70%)' }}
+              style={{ background: 'radial-gradient(circle, rgba(126,217,87,0.4) 0%, transparent 70%)' }}
             />
             <motion.div
               className="absolute inset-0 rounded-full"
               animate={{ scale: [1, 1.6, 1], opacity: [0.2, 0, 0.2] }}
               transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut', delay: 0.4 }}
-              style={{ background: 'radial-gradient(circle, rgba(75,0,130,0.2) 0%, transparent 70%)' }}
+              style={{ background: 'radial-gradient(circle, rgba(126,217,87,0.25) 0%, transparent 70%)' }}
             />
             <div
               className="w-14 h-14 rounded-full flex items-center justify-center relative"
               style={{
-                background: 'linear-gradient(135deg, #4B0082, #7B00CC)',
-                boxShadow: '0 0 0 4px rgba(75,0,130,0.15), 0 8px 32px rgba(75,0,130,0.4)',
+                background: 'linear-gradient(135deg, #7ED957, #3dba1e)',
+                boxShadow: '0 0 0 4px rgba(126,217,87,0.2), 0 8px 32px rgba(126,217,87,0.45)',
               }}
             >
               <Icon className="w-6 h-6 text-white" />
@@ -95,7 +95,7 @@ export default function LuxuryTimelineNode({ study, index, isLast }) {
             style={{
               fontFamily: '-apple-system, SF Pro Display, BlinkMacSystemFont, Segoe UI, sans-serif',
               fontSize: 15,
-              color: isCompleted ? '#008F4C' : isCurrent ? '#4B0082' : '#8e8e93',
+              color: isCompleted ? '#008F4C' : isCurrent ? '#3dba1e' : '#8e8e93',
             }}
           >
             {study.study_name}
@@ -105,7 +105,7 @@ export default function LuxuryTimelineNode({ study, index, isLast }) {
               animate={{ opacity: [1, 0.5, 1] }}
               transition={{ duration: 1.8, repeat: Infinity }}
               className="text-[10px] font-semibold tracking-wider uppercase px-2.5 py-1 rounded-full"
-              style={{ background: 'rgba(75,0,130,0.08)', color: '#4B0082' }}
+              style={{ background: 'rgba(126,217,87,0.12)', color: '#3dba1e' }}
             >
               Ahora
             </motion.span>
@@ -133,10 +133,10 @@ export default function LuxuryTimelineNode({ study, index, isLast }) {
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl mb-2"
-            style={{ background: 'rgba(75,0,130,0.06)', border: '1px solid rgba(75,0,130,0.1)' }}
+            style={{ background: 'rgba(126,217,87,0.08)', border: '1px solid rgba(126,217,87,0.2)' }}
           >
-            <div className="w-1.5 h-1.5 rounded-full bg-[#4B0082]" />
-            <span className="text-xs font-medium text-[#4B0082]">{study.cubicle}</span>
+            <div className="w-1.5 h-1.5 rounded-full bg-[#3dba1e]" />
+            <span className="text-xs font-medium text-[#3dba1e]">{study.cubicle}</span>
           </motion.div>
         )}
 
