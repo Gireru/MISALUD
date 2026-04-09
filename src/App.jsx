@@ -10,6 +10,7 @@ import { VoiceProvider } from '@/lib/VoiceContext';
 // Staff (protected) pages
 import StaffDashboard from './pages/StaffDashboard';
 import PatientList from './pages/PatientList';
+import ClinicWorld from './pages/ClinicWorld';
 
 // Public pages
 import RegisterPatient from './pages/RegisterPatient';
@@ -41,6 +42,7 @@ function App() {
             <Route element={<StaffGuard />}>
               <Route path="/staff" element={<StaffDashboard />} />
               <Route path="/patients" element={<PatientList />} />
+              <Route path="/clinic-world" element={<ClinicWorld />} />
             </Route>
 
             <Route path="*" element={<PageNotFound />} />

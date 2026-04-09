@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Users, Clock, TrendingUp, CheckCircle2, Zap } from 'lucide-react';
+import { Users, Clock, TrendingUp, CheckCircle2, Zap, Globe } from 'lucide-react';
 import RadarFlowCard from '../components/staff/RadarFlowCard';
 import PatientBubbleFlow from '../components/staff/PatientBubbleFlow';
 import FloatingAlerts from '../components/staff/FloatingAlerts';
@@ -66,8 +66,20 @@ export default function StaffDashboard() {
           />
           <span className="text-[11px] font-semibold tracking-widest text-[#008F4C] uppercase">En vivo</span>
         </div>
-        <h1 className="text-3xl font-semibold text-gray-900">Mission Control</h1>
-        <p className="text-sm text-gray-400 mt-1 font-light">Toma de decisiones en tiempo real</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-semibold text-gray-900">Mission Control</h1>
+            <p className="text-sm text-gray-400 mt-1 font-light">Toma de decisiones en tiempo real</p>
+          </div>
+          <a
+            href="/clinic-world"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold text-white transition-all hover:scale-105"
+            style={{ background: 'linear-gradient(135deg, #7ED957, #008F4C)', boxShadow: '0 4px 16px rgba(126,217,87,0.4)' }}
+          >
+            <Globe className="w-4 h-4" />
+            🏥 Clínica World
+          </a>
+        </div>
       </motion.div>
 
       {/* Stat cards */}
