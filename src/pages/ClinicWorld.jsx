@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, CheckCircle2, AlertTriangle, Zap, Activity, X } from 'lucide-react';
+import { Users, CheckCircle2, AlertTriangle, Zap, Activity, X, Gauge } from 'lucide-react';
 import HabboClinic, { ZONES, getCurrentZone } from '../components/habbo/HabboClinic';
 import ActivityLog from '../components/habbo/ActivityLog';
 
@@ -98,6 +98,24 @@ function PatientDetailPanel({ journey, onClose }) {
 export default function ClinicWorld() {
   const queryClient = useQueryClient();
   const [selectedJourney, setSelectedJourney] = useState(null);
+  const [speed, setSpeed] = useState(1); // 1 = normal, 2 = x2, 5 = x5
+  const speedIntervalRef = useRef(null);
+
+  // Speed loop: when speed > 1, call simulatePatientFlow every 2s with steps=speed
+  useEffect(() => {
+    if (speedIntervalRef.current) clearInterval(speedIntervalRef.current);
+    if (speed === 1) return;
+
+    const run = async () => {
+      await base44.functions.invoke('simulatePatientFlow', { steps: speed });
+      queryClient.invalidateQueries({ queryKey: ['world-journeys'] });
+      queryClient.invalidateQueries({ queryKey: ['world-all-journeys'] });
+    };
+
+    run(); // fire immediately
+    speedIntervalRef.current = setInterval(run, 2000);
+    return () => clearInterval(speedIntervalRef.current);
+  }, [speed, queryClient]);
 
   const { data: journeys = [] } = useQuery({
     queryKey: ['world-journeys'],
@@ -154,12 +172,47 @@ export default function ClinicWorld() {
           <h1 className="text-2xl font-bold text-gray-900">🏥 Clínica World</h1>
           <p className="text-xs text-gray-400 mt-0.5">{journeys.length} pacientes activos en tiempo real</p>
         </div>
-        <a
-          href="/staff"
-          className="text-xs px-4 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
-        >
-          ← Mission Control
-        </a>
+        <div className="flex items-center gap-3">
+          {/* Speed controls */}
+          <div className="flex items-center gap-1.5 p-1 rounded-2xl" style={{ background: 'rgba(255,255,255,0.85)', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+            <div className="flex items-center gap-1 px-2">
+              <Gauge className="w-3.5 h-3.5 text-gray-400" />
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Vel.</span>
+            </div>
+            {[1, 2, 5].map(s => (
+              <button
+                key={s}
+                onClick={() => setSpeed(speed === s ? 1 : s)}
+                className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+                style={{
+                  background: speed === s
+                    ? s === 5 ? 'linear-gradient(135deg,#FF6B6B,#cc2222)' : s === 2 ? 'linear-gradient(135deg,#FFB347,#c47800)' : 'linear-gradient(135deg,#7ED957,#3dba1e)'
+                    : 'transparent',
+                  color: speed === s ? 'white' : '#999',
+                  boxShadow: speed === s ? '0 2px 8px rgba(0,0,0,0.15)' : 'none',
+                  transform: speed === s ? 'scale(1.05)' : 'scale(1)',
+                }}
+              >
+                {s === 1 ? '1×' : `${s}×`}
+              </button>
+            ))}
+            {speed > 1 && (
+              <motion.div
+                className="w-2 h-2 rounded-full ml-1 mr-1"
+                style={{ background: speed === 5 ? '#FF6B6B' : '#FFB347' }}
+                animate={{ scale: [1, 1.6, 1], opacity: [1, 0.4, 1] }}
+                transition={{ duration: 0.5, repeat: Infinity }}
+              />
+            )}
+          </div>
+
+          <a
+            href="/staff"
+            className="text-xs px-4 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            ← Mission Control
+          </a>
+        </div>
       </motion.div>
 
       {/* Quick stats row */}
@@ -255,7 +308,9 @@ export default function ClinicWorld() {
         ))}
         <div className="flex items-center gap-1.5 ml-auto">
           <motion.div className="w-2 h-2 rounded-full bg-[#7ED957]" animate={{ scale: [1, 1.4, 1] }} transition={{ duration: 2, repeat: Infinity }} />
-          <span className="text-[10px] text-gray-400">Actualización cada 8s · Eventos en tiempo real</span>
+          <span className="text-[10px] text-gray-400">
+            {speed > 1 ? `⚡ Modo x${speed} activo — avanzando cada 2s` : 'Actualización cada 8s · Eventos en tiempo real'}
+          </span>
         </div>
       </motion.div>
     </div>
