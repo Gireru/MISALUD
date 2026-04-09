@@ -21,6 +21,11 @@ const PATIENTS = [
   { name: 'Héctor Domínguez Ibarra', phone: '8110987654' },
   { name: 'Isabella Fuentes Montes', phone: '8191234567' },
   { name: 'Arturo Vega Sandoval', phone: '8109876543' },
+  { name: 'Natalia Ríos Cervantes', phone: '8112233445' },
+  { name: 'Ramón Bustamante Leal', phone: '8155667788' },
+  { name: 'Claudia Pedraza Núñez', phone: '8199887766' },
+  { name: 'Óscar Villanueva Tapia', phone: '8133221100' },
+  { name: 'Mónica Esquivel Barrera', phone: '8177665544' },
 ];
 
 // Different journey templates with varied progress states
@@ -209,6 +214,46 @@ const JOURNEY_TEMPLATES = [
     priority_color: 'green',
     penalty_count: 0,
   },
+  // 3 studies, first just completed, second starting
+  {
+    studies: [
+      { study_name: 'Análisis de Sangre', area: 'Laboratorio', status: 'completed', estimated_minutes: 15, cubicle: 'Lab-E', steps_done: 3, completed_at: new Date(Date.now() - 12 * 60000).toISOString() },
+      { study_name: 'Tomografía', area: 'Tomografía', status: 'in_progress', estimated_minutes: 30, cubicle: 'TC-3', steps_done: 0 },
+      { study_name: 'Nutrición', area: 'Nutrición', status: 'pending', estimated_minutes: 30, cubicle: 'Nut-4', steps_done: 0 },
+    ],
+    priority_color: 'auto',
+    penalty_count: 0,
+  },
+  // Urgent, 2 studies mid-progress
+  {
+    studies: [
+      { study_name: 'Electrocardiograma', area: 'Cardiología', status: 'in_progress', estimated_minutes: 12, cubicle: 'Card-4', steps_done: 1 },
+      { study_name: 'Resonancia Magnética', area: 'Resonancia', status: 'pending', estimated_minutes: 40, cubicle: 'RM-3', steps_done: 0 },
+    ],
+    priority_color: 'red',
+    penalty_count: 0,
+  },
+  // 4 studies, all pending (just registered)
+  {
+    studies: [
+      { study_name: 'Ultrasonido Abdominal', area: 'Ultrasonido', status: 'in_progress', estimated_minutes: 20, cubicle: 'US-5', steps_done: 0 },
+      { study_name: 'Mastografía', area: 'Mastografía', status: 'pending', estimated_minutes: 15, cubicle: 'Mast-2', steps_done: 0 },
+      { study_name: 'Densitometría', area: 'Densitometría', status: 'pending', estimated_minutes: 20, cubicle: 'Dens-3', steps_done: 0 },
+      { study_name: 'Examen de Vista', area: 'Oftalmología', status: 'pending', estimated_minutes: 15, cubicle: 'Oft-4', steps_done: 0 },
+    ],
+    priority_color: 'yellow',
+    penalty_count: 0,
+  },
+  // Almost done, step 2 of last study
+  {
+    studies: [
+      { study_name: 'Papanicolaou', area: 'Ginecología', status: 'completed', estimated_minutes: 15, cubicle: 'Gin-3', steps_done: 3, completed_at: new Date(Date.now() - 30 * 60000).toISOString() },
+      { study_name: 'Análisis de Sangre', area: 'Laboratorio', status: 'completed', estimated_minutes: 15, cubicle: 'Lab-F', steps_done: 3, completed_at: new Date(Date.now() - 10 * 60000).toISOString() },
+      { study_name: 'Radiografía de Tórax', area: 'Rayos X', status: 'in_progress', estimated_minutes: 10, cubicle: 'RX-4', steps_done: 2 },
+    ],
+    priority_color: 'auto',
+    penalty_count: 0,
+  },
 ];
 
 Deno.serve(async (req) => {
@@ -223,7 +268,7 @@ Deno.serve(async (req) => {
 
     for (let i = 0; i < PATIENTS.length; i++) {
       const p = PATIENTS[i];
-      const template = JOURNEY_TEMPLATES[i];
+      const template = JOURNEY_TEMPLATES[i % JOURNEY_TEMPLATES.length];
 
       // Create patient
       const patient = await base44.asServiceRole.entities.Patient.create({
@@ -258,7 +303,7 @@ Deno.serve(async (req) => {
 
     return Response.json({
       success: true,
-      message: `${created.length} trayectorias demo creadas exitosamente`,
+      message: `${created.length} trayectorias demo creadas exitosamente (25 total)`,
       created,
     });
   } catch (error) {
