@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, Phone, AlertTriangle, Trash2, MessageSquare, Check, X } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
@@ -114,9 +114,16 @@ function PatientCard({ journey, index, onUpdate, onStudyComplete }) {
   const [deleting, setDeleting] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [justCompleted, setJustCompleted] = useState(false);
+  // Local studies state so UI updates immediately without waiting for parent refresh
+  const [localStudies, setLocalStudies] = useState(journey.studies || []);
 
-  const color = getColor(journey);
-  const autoPriority = getAutoPriority(journey.studies || [], journey.created_date);
+  // Sync local state when journey prop changes (e.g. real-time update from parent)
+  React.useEffect(() => {
+    setLocalStudies(journey.studies || []);
+  }, [journey.studies]);
+
+  const color = getColor({ ...journey, studies: localStudies });
+  const autoPriority = getAutoPriority(localStudies, journey.created_date);
 
   const archiveJourney = async () => {
     setDeleting(true);
@@ -132,30 +139,32 @@ function PatientCard({ journey, index, onUpdate, onStudyComplete }) {
   });
 
   const markStep = async (studyIndex, stepIndex) => {
-    const updatedStudies = [...(journey.studies || [])];
+    const updatedStudies = localStudies.map((s, i) => i === studyIndex ? { ...s, steps_done: (s.steps_done || 0) + 1 } : s);
     const study = updatedStudies[studyIndex];
     const steps = getSteps(study?.study_name || '');
-    const current = study?.steps_done || 0;
-    if (stepIndex !== current) return;
-    const next = current + 1;
-    updatedStudies[studyIndex] = { ...study, steps_done: next };
+    // Update UI immediately
+    setLocalStudies(updatedStudies);
     await base44.entities.ClinicalJourney.update(journey.id, { studies: updatedStudies });
-    if (next >= steps.length) {
-      setTimeout(() => markStudyComplete(studyIndex), 400);
+    if ((study.steps_done || 0) >= steps.length - 1) {
+      setTimeout(() => markStudyComplete(studyIndex, updatedStudies), 400);
     }
   };
 
-  const markStudyComplete = async (studyIndex) => {
-    const updatedStudies = [...(journey.studies || [])];
-    const completedStudy = updatedStudies[studyIndex];
-    completedStudy.status = 'completed';
-    completedStudy.completed_at = new Date().toISOString();
+  const markStudyComplete = async (studyIndex, baseStudies) => {
+    const updatedStudies = (baseStudies || localStudies).map((s, i) => {
+      if (i === studyIndex) return { ...s, status: 'completed', completed_at: new Date().toISOString() };
+      return s;
+    });
 
-    const nextPending = updatedStudies.findIndex(s => s.status === 'pending');
-    if (nextPending !== -1) updatedStudies[nextPending].status = 'in_progress';
+    // Set next pending to in_progress
+    const nextPendingIdx = updatedStudies.findIndex(s => s.status === 'pending');
+    if (nextPendingIdx !== -1) updatedStudies[nextPendingIdx] = { ...updatedStudies[nextPendingIdx], status: 'in_progress' };
 
     const allDone = updatedStudies.every(s => s.status === 'completed');
     if (allDone) setJustCompleted(true);
+
+    // Update UI immediately
+    setLocalStudies(updatedStudies);
 
     await base44.entities.ClinicalJourney.update(journey.id, {
       studies: updatedStudies,
@@ -166,20 +175,17 @@ function PatientCard({ journey, index, onUpdate, onStudyComplete }) {
     }
 
     // 🧠 Trigger ClinicController scheduler
+    const completedStudy = updatedStudies[studyIndex];
     const roomId = completedStudy.cubicle || `${completedStudy.study_name}-R1`;
     onStudyComplete?.(journey.id, completedStudy.study_name, roomId);
 
     onUpdate?.();
   };
 
-  const studies = journey.studies || [];
+  const studies = localStudies;
   const completed = studies.filter(s => s.status === 'completed').length;
   const currentStudy = studies.find(s => s.status === 'in_progress');
-  const currentIdx = studies.findIndex(s => s.status === 'in_progress');
-
-
-
-  const completedCount = studies.filter(s => s.status === 'completed').length;
+  const completedCount = completed;
   const progressPct = studies.length > 0 ? completedCount / studies.length : 0;
 
   return (
@@ -371,7 +377,7 @@ function PatientCard({ journey, index, onUpdate, onStudyComplete }) {
           const steps = getSteps(currentStudy.study_name);
           const done = currentStudy.steps_done || 0;
           // Re-compute currentIdx here to avoid stale closure issues
-          const liveCurrentIdx = (journey.studies || []).findIndex(s => s.status === 'in_progress');
+          const liveCurrentIdx = localStudies.findIndex(s => s.status === 'in_progress');
           return (
             <motion.div
               initial={{ opacity: 0, y: 6 }}
