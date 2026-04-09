@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, Phone, AlertTriangle, Trash2, MessageSquare, Check, Bell, Activity, FileText } from 'lucide-react';
+import { CheckCircle2, Phone, AlertTriangle, Trash2, MessageSquare, Check, X } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import EmergencyCodeModal from './EmergencyCodeModal';
 import DoctorNotesPanel from './DoctorNotesPanel';
 import { CompletionOverlay } from '../patient/LuxuryTimelineNode';
+import { useClinicManager } from '@/hooks/useClinicManager';
 
 // ── Mirror of getSteps from LuxuryTimelineNode ──────────────────────
 function getSteps(studyName) {
@@ -107,7 +108,7 @@ function getInitials(name) {
 
 
 // ── Patient Card ────────────────────────────────────────────────────
-function PatientCard({ journey, index, onUpdate }) {
+function PatientCard({ journey, index, onUpdate, onStudyComplete }) {
   const [emergencyOpen, setEmergencyOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -146,8 +147,9 @@ function PatientCard({ journey, index, onUpdate }) {
 
   const markStudyComplete = async (studyIndex) => {
     const updatedStudies = [...(journey.studies || [])];
-    updatedStudies[studyIndex].status = 'completed';
-    updatedStudies[studyIndex].completed_at = new Date().toISOString();
+    const completedStudy = updatedStudies[studyIndex];
+    completedStudy.status = 'completed';
+    completedStudy.completed_at = new Date().toISOString();
 
     const nextPending = updatedStudies.findIndex(s => s.status === 'pending');
     if (nextPending !== -1) updatedStudies[nextPending].status = 'in_progress';
@@ -162,6 +164,11 @@ function PatientCard({ journey, index, onUpdate }) {
     if (allDone) {
       await base44.entities.Patient.update(journey.patient_id, { current_status: 'completed' });
     }
+
+    // 🧠 Trigger ClinicController scheduler
+    const roomId = completedStudy.cubicle || `${completedStudy.study_name}-R1`;
+    onStudyComplete?.(journey.id, completedStudy.study_name, roomId);
+
     onUpdate?.();
   };
 
@@ -542,8 +549,43 @@ function PatientCard({ journey, index, onUpdate }) {
   );
 }
 
+// ── Alerts Banner ────────────────────────────────────────────────────
+function AlertsBanner({ alerts, onDismiss }) {
+  if (alerts.length === 0) return null;
+  return (
+    <div className="space-y-1.5 mb-4">
+      <AnimatePresence>
+        {alerts.slice(0, 5).map(a => (
+          <motion.div
+            key={a.id}
+            initial={{ opacity: 0, y: -8, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 40, scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 24 }}
+            className="flex items-start justify-between gap-3 px-4 py-2.5 rounded-2xl text-xs font-medium"
+            style={{
+              background: a.msg.startsWith('🔴') || a.msg.startsWith('🚫')
+                ? 'rgba(220,38,38,0.07)' : 'rgba(126,217,87,0.08)',
+              border: a.msg.startsWith('🔴') || a.msg.startsWith('🚫')
+                ? '1px solid rgba(220,38,38,0.18)' : '1px solid rgba(126,217,87,0.2)',
+              color: a.msg.startsWith('🔴') || a.msg.startsWith('🚫') ? '#b91c1c' : '#15803d',
+            }}
+          >
+            <span className="leading-snug flex-1">{a.msg}</span>
+            <button onClick={() => onDismiss(a.id)} className="shrink-0 opacity-50 hover:opacity-100 transition-opacity mt-0.5">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 // ── Main export ─────────────────────────────────────────────────────
 export default function PatientBubbleFlow({ journeys, onUpdate }) {
+  const { handleStudyCompletion, alerts, dismissAlert } = useClinicManager();
+
   if (journeys.length === 0) {
     return (
       <motion.div
@@ -559,10 +601,19 @@ export default function PatientBubbleFlow({ journeys, onUpdate }) {
   const sorted = sortByPriority(journeys);
 
   return (
-    <AnimatePresence mode="popLayout">
-      {sorted.map((journey, i) => (
-        <PatientCard key={journey.id} journey={journey} index={i} onUpdate={onUpdate} />
-      ))}
-    </AnimatePresence>
+    <>
+      <AlertsBanner alerts={alerts} onDismiss={dismissAlert} />
+      <AnimatePresence mode="popLayout">
+        {sorted.map((journey, i) => (
+          <PatientCard
+            key={journey.id}
+            journey={journey}
+            index={i}
+            onUpdate={onUpdate}
+            onStudyComplete={handleStudyCompletion}
+          />
+        ))}
+      </AnimatePresence>
+    </>
   );
 }
