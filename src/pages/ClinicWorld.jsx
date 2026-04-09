@@ -113,7 +113,7 @@ export default function ClinicWorld() {
     };
 
     run(); // fire immediately
-    const interval = speed === 2 ? 3500 : 2000;
+    const interval = speed === 2 ? 5000 : 2500;
     speedIntervalRef.current = setInterval(run, interval);
     return () => clearInterval(speedIntervalRef.current);
   }, [speed, queryClient]);

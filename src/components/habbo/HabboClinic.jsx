@@ -142,43 +142,103 @@ function HabboChar({ journey, cx, cy, onClick, selected }) {
   const initials = getInitials(journey.patient_name);
   const isRed = journey.priority_color === 'red';
 
+  // Walking bob animation — legs alternate
+  const walkVariants = {
+    walk: {
+      y: [0, -2, 0, -2, 0],
+      transition: { duration: 0.8, repeat: Infinity, ease: 'easeInOut' },
+    },
+  };
+
   return (
     <motion.g
       style={{ cursor: 'pointer' }}
       onClick={() => onClick(journey)}
-      initial={{ opacity: 0, scale: 0 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+      // Smooth position transition when zone changes
+      animate={{ x: cx, y: cy, opacity: 1, scale: 1 }}
+      initial={{ x: cx, y: cy, opacity: 0, scale: 0.3 }}
+      exit={{ opacity: 0, scale: 0, transition: { duration: 0.3 } }}
+      transition={{ type: 'spring', stiffness: 100, damping: 16, mass: 1.2 }}
     >
+      {/* Arrival pulse ring */}
+      <motion.circle
+        cx={0} cy={4} r={20}
+        fill="none" stroke={colors[0]} strokeWidth={1.5}
+        initial={{ r: 6, opacity: 0.9 }}
+        animate={{ r: 28, opacity: 0 }}
+        transition={{ duration: 1.2, repeat: Infinity, repeatDelay: 2 }}
+      />
+
       {selected && (
-        <circle cx={cx} cy={cy + 4} r={18} fill="none" stroke={colors[0]} strokeWidth={2.5} strokeDasharray="4,2" opacity={0.85} />
-      )}
-      {isRed && (
-        <motion.circle cx={cx} cy={cy + 4} r={18} fill="none" stroke="#FF6B6B" strokeWidth={2}
-          animate={{ r: [18, 26], opacity: [0.8, 0] }}
-          transition={{ duration: 1, repeat: Infinity }}
+        <motion.circle
+          cx={0} cy={4} r={18}
+          fill="none" stroke={colors[0]} strokeWidth={2.5} strokeDasharray="4,2"
+          animate={{ rotate: 360 }}
+          transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
+          style={{ originX: '0px', originY: '4px' }}
+          opacity={0.85}
         />
       )}
-      {/* Shadow */}
-      <ellipse cx={cx} cy={cy + 22} rx={10} ry={4} fill="rgba(0,0,0,0.10)" />
-      {/* Legs */}
-      <rect x={cx - 5} y={cy + 12} width={4} height={8} rx={2} fill={colors[1]} />
-      <rect x={cx + 1} y={cy + 12} width={4} height={8} rx={2} fill={colors[1]} />
-      {/* Torso */}
-      <rect x={cx - 7} y={cy + 2} width={14} height={12} rx={3} fill={colors[0]} />
-      {/* Arms */}
-      <rect x={cx - 11} y={cy + 4} width={5} height={7} rx={2} fill={colors[0]} />
-      <rect x={cx + 6} y={cy + 4} width={5} height={7} rx={2} fill={colors[0]} />
-      {/* Head */}
-      <circle cx={cx} cy={cy - 2} r={9} fill="#FDBCB4" stroke={colors[1]} strokeWidth={1.5} />
-      {/* Initials */}
-      <text x={cx} y={cy + 2} textAnchor="middle" fontSize={6} fill={colors[1]} fontWeight="bold" style={{ userSelect: 'none' }}>
-        {initials}
-      </text>
-      {/* Name tag */}
-      <rect x={cx - 22} y={cy - 26} width={44} height={12} rx={6} fill="rgba(0,0,0,0.72)" />
-      <text x={cx} y={cy - 17} textAnchor="middle" fontSize={6.5} fill="white" fontWeight="600" style={{ userSelect: 'none' }}>
+      {isRed && (
+        <motion.circle cx={0} cy={4} r={18} fill="none" stroke="#FF6B6B" strokeWidth={2}
+          animate={{ r: [18, 28], opacity: [0.8, 0] }}
+          transition={{ duration: 0.9, repeat: Infinity }}
+        />
+      )}
+
+      {/* Character body — bobs up/down while walking */}
+      <motion.g
+        animate={{ y: [0, -2, 0] }}
+        transition={{ duration: 0.9, repeat: Infinity, ease: 'easeInOut' }}
+      >
+        {/* Shadow */}
+        <motion.ellipse
+          cx={0} cy={22} rx={10} ry={4}
+          fill="rgba(0,0,0,0.12)"
+          animate={{ scaleX: [1, 0.85, 1] }}
+          transition={{ duration: 0.9, repeat: Infinity, ease: 'easeInOut' }}
+        />
+        {/* Leg left */}
+        <motion.rect
+          x={-5} y={12} width={4} height={8} rx={2} fill={colors[1]}
+          animate={{ rotateZ: [-12, 12, -12] }}
+          transition={{ duration: 0.4, repeat: Infinity, ease: 'easeInOut' }}
+          style={{ originX: '-3px', originY: '12px' }}
+        />
+        {/* Leg right */}
+        <motion.rect
+          x={1} y={12} width={4} height={8} rx={2} fill={colors[1]}
+          animate={{ rotateZ: [12, -12, 12] }}
+          transition={{ duration: 0.4, repeat: Infinity, ease: 'easeInOut' }}
+          style={{ originX: '3px', originY: '12px' }}
+        />
+        {/* Torso */}
+        <rect x={-7} y={2} width={14} height={12} rx={3} fill={colors[0]} />
+        {/* Arm left */}
+        <motion.rect
+          x={-11} y={4} width={5} height={7} rx={2} fill={colors[0]}
+          animate={{ rotateZ: [10, -10, 10] }}
+          transition={{ duration: 0.4, repeat: Infinity, ease: 'easeInOut' }}
+          style={{ originX: '-9px', originY: '4px' }}
+        />
+        {/* Arm right */}
+        <motion.rect
+          x={6} y={4} width={5} height={7} rx={2} fill={colors[0]}
+          animate={{ rotateZ: [-10, 10, -10] }}
+          transition={{ duration: 0.4, repeat: Infinity, ease: 'easeInOut' }}
+          style={{ originX: '8px', originY: '4px' }}
+        />
+        {/* Head */}
+        <circle cx={0} cy={-2} r={9} fill="#FDBCB4" stroke={colors[1]} strokeWidth={1.5} />
+        {/* Initials */}
+        <text x={0} y={2} textAnchor="middle" fontSize={6} fill={colors[1]} fontWeight="bold" style={{ userSelect: 'none' }}>
+          {initials}
+        </text>
+      </motion.g>
+
+      {/* Name tag — always static above character */}
+      <rect x={-22} y={-38} width={44} height={13} rx={6} fill="rgba(0,0,0,0.75)" />
+      <text x={0} y={-28} textAnchor="middle" fontSize={6.5} fill="white" fontWeight="600" style={{ userSelect: 'none' }}>
         {journey.patient_name.split(' ')[0]}
       </text>
     </motion.g>
@@ -266,12 +326,14 @@ export default function HabboClinic({ journeys, onSelectJourney, selectedId }) {
               const pos = SLOT_POS[slot];
               if (!pos) return null;
               const [ox, oy] = OFFSETS[idx % OFFSETS.length];
+              const targetX = pos.x + ox;
+              const targetY = pos.y + oy - 30;
               return (
                 <HabboChar
                   key={journey.id}
                   journey={journey}
-                  cx={pos.x + ox}
-                  cy={pos.y + oy - 30}
+                  cx={targetX}
+                  cy={targetY}
                   onClick={onSelectJourney}
                   selected={selectedId === journey.id}
                 />

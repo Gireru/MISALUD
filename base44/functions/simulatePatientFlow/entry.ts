@@ -4,12 +4,12 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
 
-    // Accept optional `steps` param — how many steps to advance per journey (default 1)
+    // Accept optional `steps` param — how many journeys to advance per call (default: all, 1 step each)
     let steps = 1;
     try {
       const body = await req.json();
-      if (body?.steps && typeof body.steps === 'number') steps = Math.min(body.steps, 9);
-    } catch (_) { /* no body — use default */ }
+      if (body?.steps && typeof body.steps === 'number') steps = Math.min(body.steps, 5);
+    } catch (_) { /* no body */ }
 
     const journeys = await base44.asServiceRole.entities.ClinicalJourney.filter({ status: 'active' });
 
@@ -19,43 +19,37 @@ Deno.serve(async (req) => {
       let studies = [...(journey.studies || [])];
       let changed = false;
 
-      // Advance `steps` times for this journey
-      for (let tick = 0; tick < steps; tick++) {
-        const inProgressIdx = studies.findIndex(s => s.status === 'in_progress');
+      // Advance exactly ONE logical step per journey per call.
+      // Each call to this function with steps=N just repeats this for N journeys (not N steps per journey).
+      // This prevents bulk-completing all studies in one shot.
+      const inProgressIdx = studies.findIndex(s => s.status === 'in_progress');
 
-        if (inProgressIdx === -1) {
-          // No in_progress — find first pending and start it
-          const pendingIdx = studies.findIndex(s => s.status === 'pending');
-          if (pendingIdx !== -1) {
-            studies[pendingIdx] = { ...studies[pendingIdx], status: 'in_progress', steps_done: 0 };
-            changed = true;
-          } else {
-            break; // nothing left to advance
-          }
+      if (inProgressIdx === -1) {
+        // No study in progress — activate the first pending one
+        const pendingIdx = studies.findIndex(s => s.status === 'pending');
+        if (pendingIdx !== -1) {
+          studies[pendingIdx] = { ...studies[pendingIdx], status: 'in_progress', steps_done: 0 };
+          changed = true;
+        }
+      } else {
+        const study = studies[inProgressIdx];
+        const totalSteps = 3;
+        const currentSteps = study.steps_done || 0;
+
+        if (currentSteps < totalSteps - 1) {
+          // Advance one step within the current study
+          studies[inProgressIdx] = { ...study, steps_done: currentSteps + 1 };
+          changed = true;
         } else {
-          const study = studies[inProgressIdx];
-          const totalSteps = 3;
-          const currentSteps = study.steps_done || 0;
-
-          if (currentSteps < totalSteps - 1) {
-            studies[inProgressIdx] = { ...study, steps_done: currentSteps + 1 };
-            changed = true;
-          } else {
-            // Complete this study
-            studies[inProgressIdx] = {
-              ...study,
-              status: 'completed',
-              steps_done: totalSteps,
-              completed_at: new Date().toISOString(),
-            };
-
-            // Start next pending
-            const nextPendingIdx = studies.findIndex(s => s.status === 'pending');
-            if (nextPendingIdx !== -1) {
-              studies[nextPendingIdx] = { ...studies[nextPendingIdx], status: 'in_progress', steps_done: 0 };
-            }
-            changed = true;
-          }
+          // Complete this study — do NOT start the next one in the same tick
+          // The next tick will find no in_progress and activate the next pending
+          studies[inProgressIdx] = {
+            ...study,
+            status: 'completed',
+            steps_done: totalSteps,
+            completed_at: new Date().toISOString(),
+          };
+          changed = true;
         }
       }
 
