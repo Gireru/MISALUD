@@ -3,16 +3,12 @@ import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, CheckCircle2, AlertTriangle, Zap, Activity, X } from 'lucide-react';
-import HabboClinic, { ZONES } from '../components/habbo/HabboClinic';
+import HabboClinic, { ZONES, getCurrentZone } from '../components/habbo/HabboClinic';
 import ActivityLog from '../components/habbo/ActivityLog';
 
 const SF = '-apple-system, SF Pro Display, BlinkMacSystemFont, sans-serif';
 
-function getCurrentZone(journey) {
-  const s = (journey.studies || []).find(s => s.status === 'in_progress');
-  if (s) return s.area;
-  return 'Sala de Espera';
-}
+
 
 function PriorityBadge({ priority }) {
   const cfg = {
