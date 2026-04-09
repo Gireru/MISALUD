@@ -158,61 +158,61 @@ export default function ClinicWorld() {
   return (
     <div className="min-h-screen p-4 md:p-6" style={{ background: '#f0f4ff', fontFamily: SF }}>
 
-      {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between mb-5">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
+      {/* Floating top-right controls */}
+      <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
+        {/* Speed controls */}
+        <div className="flex items-center gap-1 p-1 rounded-2xl" style={{ background: 'rgba(255,255,255,0.95)', border: '1px solid rgba(0,0,0,0.10)', boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }}>
+          <div className="flex items-center gap-1 px-2">
+            <Gauge className="w-3.5 h-3.5 text-gray-400" />
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Vel.</span>
+          </div>
+          {[1, 2, 5].map(s => (
+            <button
+              key={s}
+              onClick={() => setSpeed(speed === s ? 1 : s)}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+              style={{
+                background: speed === s
+                  ? s === 5 ? 'linear-gradient(135deg,#FF6B6B,#cc2222)' : s === 2 ? 'linear-gradient(135deg,#FFB347,#c47800)' : 'linear-gradient(135deg,#7ED957,#3dba1e)'
+                  : 'transparent',
+                color: speed === s ? 'white' : '#999',
+                boxShadow: speed === s ? '0 2px 8px rgba(0,0,0,0.15)' : 'none',
+              }}
+            >
+              {s === 1 ? '1×' : `${s}×`}
+            </button>
+          ))}
+          {speed > 1 && (
             <motion.div
-              className="w-2 h-2 rounded-full bg-[#7ED957]"
-              animate={{ scale: [1, 1.5, 1] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
+              className="w-2 h-2 rounded-full ml-1 mr-1"
+              style={{ background: speed === 5 ? '#FF6B6B' : '#FFB347' }}
+              animate={{ scale: [1, 1.6, 1], opacity: [1, 0.4, 1] }}
+              transition={{ duration: 0.5, repeat: Infinity }}
             />
-            <span className="text-[10px] font-bold tracking-widest text-[#3dba1e] uppercase">Vista en Vivo</span>
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">🏥 Clínica World</h1>
-          <p className="text-xs text-gray-400 mt-0.5">{journeys.length} pacientes activos en tiempo real</p>
+          )}
         </div>
-        <div className="flex items-center gap-3">
-          {/* Speed controls */}
-          <div className="flex items-center gap-1.5 p-1 rounded-2xl" style={{ background: 'rgba(255,255,255,0.85)', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-            <div className="flex items-center gap-1 px-2">
-              <Gauge className="w-3.5 h-3.5 text-gray-400" />
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Vel.</span>
-            </div>
-            {[1, 2, 5].map(s => (
-              <button
-                key={s}
-                onClick={() => setSpeed(speed === s ? 1 : s)}
-                className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
-                style={{
-                  background: speed === s
-                    ? s === 5 ? 'linear-gradient(135deg,#FF6B6B,#cc2222)' : s === 2 ? 'linear-gradient(135deg,#FFB347,#c47800)' : 'linear-gradient(135deg,#7ED957,#3dba1e)'
-                    : 'transparent',
-                  color: speed === s ? 'white' : '#999',
-                  boxShadow: speed === s ? '0 2px 8px rgba(0,0,0,0.15)' : 'none',
-                  transform: speed === s ? 'scale(1.05)' : 'scale(1)',
-                }}
-              >
-                {s === 1 ? '1×' : `${s}×`}
-              </button>
-            ))}
-            {speed > 1 && (
-              <motion.div
-                className="w-2 h-2 rounded-full ml-1 mr-1"
-                style={{ background: speed === 5 ? '#FF6B6B' : '#FFB347' }}
-                animate={{ scale: [1, 1.6, 1], opacity: [1, 0.4, 1] }}
-                transition={{ duration: 0.5, repeat: Infinity }}
-              />
-            )}
-          </div>
 
-          <a
-            href="/staff"
-            className="text-xs px-4 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
-          >
-            ← Mission Control
-          </a>
+        <a
+          href="/staff"
+          className="text-xs px-4 py-2 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors"
+          style={{ background: 'rgba(255,255,255,0.95)', border: '1px solid rgba(0,0,0,0.10)', boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }}
+        >
+          ← Mission Control
+        </a>
+      </div>
+
+      {/* Header */}
+      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="mb-5">
+        <div className="flex items-center gap-2 mb-1">
+          <motion.div
+            className="w-2 h-2 rounded-full bg-[#7ED957]"
+            animate={{ scale: [1, 1.5, 1] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+          />
+          <span className="text-[10px] font-bold tracking-widest text-[#3dba1e] uppercase">Vista en Vivo</span>
         </div>
+        <h1 className="text-2xl font-bold text-gray-900">🏥 Clínica World</h1>
+        <p className="text-xs text-gray-400 mt-0.5">{journeys.length} pacientes activos en tiempo real</p>
       </motion.div>
 
       {/* Quick stats row */}
